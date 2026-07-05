@@ -1,5 +1,7 @@
 # Reconciliation
 
+![CI](https://github.com/ai-crypto-onramp/reconciliation/actions/workflows/ci.yml/badge.svg)
+
 Continuously matches the internal ledger against bank, exchange, on-chain, and custody state; detects, classifies, and escalates breaks (a top-4 failure mode for crypto on-ramps).
 
 ## Overview / Responsibilities
