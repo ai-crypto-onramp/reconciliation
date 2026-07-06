@@ -1,5 +1,10 @@
 fastapi
 uvicorn[standard]
+SQLAlchemy>=2.0
+alembic
+asyncpg
+psycopg2-binary
+pydantic-settings
 pytest
 httpx
 pytest-cov
