@@ -1,10 +1,16 @@
-.PHONY: build test run docker-build docker-run clean
+.PHONY: build test run docker-build docker-run clean lint typecheck
 
 build:
 	pip install -e .
 
 test:
 	pytest -q --cov=reconciliation --cov-report=xml:coverage.xml
+
+lint:
+	ruff check src tests
+
+typecheck:
+	mypy --python-version 3.11 --no-site-packages src
 
 run:
 	uvicorn reconciliation.app:app --host 0.0.0.0 --port 8080

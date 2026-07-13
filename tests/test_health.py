@@ -2,7 +2,7 @@ import httpx
 import pytest
 from httpx import ASGITransport
 
-from reconciliation.app import app, readiness_report, classify_readiness, READINESS_CHECKS
+from reconciliation.app import READINESS_CHECKS, app, classify_readiness, readiness_report
 
 
 @pytest.mark.asyncio

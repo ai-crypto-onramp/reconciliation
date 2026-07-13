@@ -12,3 +12,36 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = [
+    "E501",   # line length handled by formatter
+    "B008",   # FastAPI uses default function calls in args
+    "UP007",  # PEP 604 union syntax optional in modern style
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B017", "B015"]
+"migrations/*" = ["E402"]
+
+[tool.mypy]
+python_version = "3.11"
+namespace_packages = true
+explicit_package_bases = true
+mypy_path = "src"
+ignore_missing_imports = true
+check_untyped_defs = false
+disallow_untyped_defs = false
+warn_unused_ignores = true
+warn_redundant_casts = true
+exclude = ["migrations/", "tests/"]

@@ -7,14 +7,14 @@ This plan decomposes the Reconciliation service into ordered implementation stag
 **Goal:** Establish the durable PostgreSQL schema and configuration layer that all subsequent stages depend on.
 
 **Tasks:**
-- [ ] Define `external_events` table: idempotent ingest keyed by `source` + `external_event_id`, with payload JSONB, ingested_at, and dedup index.
-- [ ] Define `recon_runs` table: one row per cycle (intraday/EOD) with source, scope, status, counts, started_at, completed_at.
-- [ ] Define `breaks` table: type, classification, source, asset, amounts, status, aging, run_id FK, detected_at.
-- [ ] Define `break_resolutions` table: append-only resolution records keyed to `breaks.id` with type (manual/auto) and actor.
-- [ ] Define `recon_rules` table: configurable match strategies, tolerances, and escalation thresholds per source/asset.
-- [ ] Add Alembic migrations (or equivalent) for all tables with indexes on lookup paths.
-- [ ] Implement settings/config loader from environment variables (PORT, DB_URL, KAFKA_BROKERS, BREAK_TOLERANCE_SECONDS, etc.).
-- [ ] Set up project scaffolding: `recon/` package, `server.py`, `cli.py`, `config.py`, `db/` module.
+- [x] Define `external_events` table: idempotent ingest keyed by `source` + `external_event_id`, with payload JSONB, ingested_at, and dedup index.
+- [x] Define `recon_runs` table: one row per cycle (intraday/EOD) with source, scope, status, counts, started_at, completed_at.
+- [x] Define `breaks` table: type, classification, source, asset, amounts, status, aging, run_id FK, detected_at.
+- [x] Define `break_resolutions` table: append-only resolution records keyed to `breaks.id` with type (manual/auto) and actor.
+- [x] Define `recon_rules` table: configurable match strategies, tolerances, and escalation thresholds per source/asset.
+- [x] Add Alembic migrations (or equivalent) for all tables with indexes on lookup paths.
+- [x] Implement settings/config loader from environment variables (PORT, DB_URL, KAFKA_BROKERS, BREAK_TOLERANCE_SECONDS, etc.).
+- [x] Set up project scaffolding: `recon/` package, `server.py`, `cli.py`, `config.py`, `db/` module.
 
 **Acceptance criteria:**
 - Migrations apply cleanly to an empty PostgreSQL database.
@@ -26,13 +26,13 @@ This plan decomposes the Reconciliation service into ordered implementation stag
 **Goal:** Build at-least-once, idempotent consumers for the four upstream sources.
 
 **Tasks:**
-- [ ] Implement Kafka consumer framework with per-source concurrency (`CONSUMER_CONCURRENCY`).
-- [ ] Add consumer for `ledger-accounting` topic (internal postings + balance snapshots).
-- [ ] Add consumer for `exchange-connectors` topic (fills, deposits/withdrawals, exchange balances).
-- [ ] Add consumer for `rail-connectors` topic (settlement, chargeback, bank balances).
-- [ ] Add consumer for `blockchain-gateway` topic (on-chain confirmations, wallet balances).
-- [ ] Implement idempotent insert into `external_events` keyed by source + external_event_id (upsert on conflict).
-- [ ] Add dead-letter handling for poison messages.
+- [x] Implement Kafka consumer framework with per-source concurrency (`CONSUMER_CONCURRENCY`).
+- [x] Add consumer for `ledger-accounting` topic (internal postings + balance snapshots).
+- [x] Add consumer for `exchange-connectors` topic (fills, deposits/withdrawals, exchange balances).
+- [x] Add consumer for `rail-connectors` topic (settlement, chargeback, bank balances).
+- [x] Add consumer for `blockchain-gateway` topic (on-chain confirmations, wallet balances).
+- [x] Implement idempotent insert into `external_events` keyed by source + external_event_id (upsert on conflict).
+- [x] Add dead-letter handling for poison messages.
 
 **Acceptance criteria:**
 - Redelivered events do not create duplicate `external_events` rows.
@@ -44,11 +44,11 @@ This plan decomposes the Reconciliation service into ordered implementation stag
 **Goal:** Implement the three match strategies used by the recon engine.
 
 **Tasks:**
-- [ ] Implement exact match strategy (amount, reference, counterparty align).
-- [ ] Implement fuzzy match with tolerance window (`BREAK_TOLERANCE_SECONDS`) for timing breaks.
-- [ ] Implement balance roll-forward strategy (opening + net flow vs. closing balance per asset/source).
-- [ ] Define match strategy interface/protocol so `recon_rules` can select strategy per source/asset.
-- [ ] Unit-test each strategy in isolation with fixtures.
+- [x] Implement exact match strategy (amount, reference, counterparty align).
+- [x] Implement fuzzy match with tolerance window (`BREAK_TOLERANCE_SECONDS`) for timing breaks.
+- [x] Implement balance roll-forward strategy (opening + net flow vs. closing balance per asset/source).
+- [x] Define match strategy interface/protocol so `recon_rules` can select strategy per source/asset.
+- [x] Unit-test each strategy in isolation with fixtures.
 
 **Acceptance criteria:**
 - Exact match returns match/no-match deterministically.
@@ -60,13 +60,13 @@ This plan decomposes the Reconciliation service into ordered implementation stag
 **Goal:** Detect breaks of all shapes and classify each as timing vs. real.
 
 **Tasks:**
-- [ ] Implement break detection for amount mismatches.
-- [ ] Implement break detection for timing gaps (ledger posting with no external confirmation within tolerance).
-- [ ] Implement break detection for missing entries.
-- [ ] Implement break detection for duplicates.
-- [ ] Classify each detected break as `timing` (expected to self-resolve) or `real` (genuine discrepancy).
-- [ ] Persist breaks to `breaks` table with classification, source, amounts, status, detected_at, run_id.
-- [ ] Enforce no-false-negatives: every unmatched pair produces a break.
+- [x] Implement break detection for amount mismatches.
+- [x] Implement break detection for timing gaps (ledger posting with no external confirmation within tolerance).
+- [x] Implement break detection for missing entries.
+- [x] Implement break detection for duplicates.
+- [x] Classify each detected break as `timing` (expected to self-resolve) or `real` (genuine discrepancy).
+- [x] Persist breaks to `breaks` table with classification, source, amounts, status, detected_at, run_id.
+- [x] Enforce no-false-negatives: every unmatched pair produces a break.
 
 **Acceptance criteria:**
 - All four break shapes are detected from matched/unmatched pairs.
@@ -78,10 +78,10 @@ This plan decomposes the Reconciliation service into ordered implementation stag
 **Goal:** Automatically close timing breaks once the delayed external confirmation arrives.
 
 **Tasks:**
-- [ ] On new external event, attempt re-match against open `timing` breaks for the same source/asset/reference.
-- [ ] If match succeeds, create `break_resolutions` row with type=`auto` and close the break.
-- [ ] Gate behavior behind `AUTO_RESOLVE_TIMING_BREAKS` flag.
-- [ ] Emit audit event for each auto-resolution.
+- [x] On new external event, attempt re-match against open `timing` breaks for the same source/asset/reference.
+- [x] If match succeeds, create `break_resolutions` row with type=`auto` and close the break.
+- [x] Gate behavior behind `AUTO_RESOLVE_TIMING_BREAKS` flag.
+- [x] Emit audit event for each auto-resolution.
 
 **Acceptance criteria:**
 - A timing break auto-closes when the matching external confirmation is ingested.
@@ -93,12 +93,12 @@ This plan decomposes the Reconciliation service into ordered implementation stag
 **Goal:** Track break age and escalate stale breaks; emit operator alerts and audit events.
 
 **Tasks:**
-- [ ] Implement aging tracker computing time-since-detection for each open break.
-- [ ] Add escalation worker that auto-escalates breaks older than `ESCALATION_AGE_MINUTES`.
-- [ ] Implement `POST /v1/breaks/:id/escalate` for manual force-escalation.
-- [ ] Emit `break-alert` to Notification service (email/SMS/webhook) on escalation.
-- [ ] Emit `break-event` to Audit Event Log for every state transition (append-only).
-- [ ] Configure `ESCALATION_WEBHOOK` invocation.
+- [x] Implement aging tracker computing time-since-detection for each open break.
+- [x] Add escalation worker that auto-escalates breaks older than `ESCALATION_AGE_MINUTES`.
+- [x] Implement `POST /v1/breaks/:id/escalate` for manual force-escalation.
+- [x] Emit `break-alert` to Notification service (email/SMS/webhook) on escalation.
+- [x] Emit `break-event` to Audit Event Log for every state transition (append-only).
+- [x] Configure `ESCALATION_WEBHOOK` invocation.
 
 **Acceptance criteria:**
 - Breaks exceeding the age threshold are auto-escalated without operator action.
@@ -110,12 +110,12 @@ This plan decomposes the Reconciliation service into ordered implementation stag
 **Goal:** Run the daily end-of-day recon cycle and the continuous intraday match loop.
 
 **Tasks:**
-- [ ] Implement intraday continuous match engine (streaming joins over incoming external events).
-- [ ] Implement EOD batch recon using Pandas/Polars dataframe joins over the day's scope.
+- [x] Implement intraday continuous match engine (streaming joins over incoming external events).
+- [x] Implement EOD batch recon using Pandas/Polars dataframe joins over the day's scope.
 - [ ] Orchestrate runs via Celery/Prefect with `EOD_RUN_CRON` schedule.
-- [ ] Create `recon_runs` rows with status, counts, started_at, completed_at.
-- [ ] Expose `POST /v1/recon-runs` to trigger ad-hoc runs and `GET /v1/recon-runs/:id` for status.
-- [ ] Add CLI command `python -m recon.cli run --source ... --scope ...`.
+- [x] Create `recon_runs` rows with status, counts, started_at, completed_at.
+- [x] Expose `POST /v1/recon-runs` to trigger ad-hoc runs and `GET /v1/recon-runs/:id` for status.
+- [x] Add CLI command `python -m recon.cli run --source ... --scope ...`.
 
 **Acceptance criteria:**
 - EOD run executes on cron and produces a `recon_runs` row with counts.
@@ -127,11 +127,11 @@ This plan decomposes the Reconciliation service into ordered implementation stag
 **Goal:** Wire up outbound emission of break alerts and audit events.
 
 **Tasks:**
-- [ ] Implement Kafka producer for `break-alert` topic consumed by Notification service.
-- [ ] Implement Kafka producer for `break-event` topic consumed by Audit Event Log.
-- [ ] Define event schemas (break id, type, source, classification, amounts, timestamp, actor).
-- [ ] Emit on every break state transition: detected, classified, auto-resolved, escalated, manually resolved.
-- [ ] Ensure at-least-once delivery with idempotent consumers downstream in mind.
+- [x] Implement Kafka producer for `break-alert` topic consumed by Notification service.
+- [x] Implement Kafka producer for `break-event` topic consumed by Audit Event Log.
+- [x] Define event schemas (break id, type, source, classification, amounts, timestamp, actor).
+- [x] Emit on every break state transition: detected, classified, auto-resolved, escalated, manually resolved.
+- [x] Ensure at-least-once delivery with idempotent consumers downstream in mind.
 
 **Acceptance criteria:**
 - Every break state transition produces both a `break-alert` and `break-event`.
@@ -143,11 +143,11 @@ This plan decomposes the Reconciliation service into ordered implementation stag
 **Goal:** Produce EOD recon reports and break exports for operators and compliance.
 
 **Tasks:**
-- [ ] Generate EOD recon report per source/asset summarizing run, breaks, resolutions.
-- [ ] Export breaks list (CSV/JSON) filtered by source/status/time range.
-- [ ] Archive reports to object storage (`REPORTS_BUCKET`).
-- [ ] Expose report download endpoint or signed URL flow.
-- [ ] Add multi-currency / multi-asset grouping in reports.
+- [x] Generate EOD recon report per source/asset summarizing run, breaks, resolutions.
+- [x] Export breaks list (CSV/JSON) filtered by source/status/time range.
+- [x] Archive reports to object storage (`REPORTS_BUCKET`).
+- [x] Expose report download endpoint or signed URL flow.
+- [x] Add multi-currency / multi-asset grouping in reports.
 
 **Acceptance criteria:**
 - EOD report is generated, archived to object storage, and retrievable.
@@ -159,13 +159,13 @@ This plan decomposes the Reconciliation service into ordered implementation stag
 **Goal:** Hardening: comprehensive tests, lint/type-check, container image, and CI pipeline.
 
 **Tasks:**
-- [ ] Add unit tests for match strategies, break detection, classification, auto-resolution, aging, escalation.
+- [x] Add unit tests for match strategies, break detection, classification, auto-resolution, aging, escalation.
 - [ ] Add integration tests with Kafka + PostgreSQL via testcontainers.
-- [ ] Add API tests for all REST endpoints.
-- [ ] Configure `ruff` lint and `mypy` type-check with `make lint` / `make typecheck`.
-- [ ] Configure pytest with coverage target and Codecov upload.
-- [ ] Write `Dockerfile` and `docker-compose.yml` (service + Postgres + Kafka).
-- [ ] Add GitHub Actions CI workflow running lint, typecheck, tests, coverage.
+- [x] Add API tests for all REST endpoints.
+- [x] Configure `ruff` lint and `mypy` type-check with `make lint` / `make typecheck`.
+- [x] Configure pytest with coverage target and Codecov upload.
+- [x] Write `Dockerfile` and `docker-compose.yml` (service + Postgres + Kafka).
+- [x] Add GitHub Actions CI workflow running lint, typecheck, tests, coverage.
 
 **Acceptance criteria:**
 - `make test`, `make lint`, `make typecheck` all pass locally and in CI.
