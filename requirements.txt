@@ -7,6 +7,7 @@ pytest-asyncio
 sqlalchemy>=2.0
 alembic
 aiosqlite
+asyncpg
 pydantic>=2
 pydantic-settings
 polars
