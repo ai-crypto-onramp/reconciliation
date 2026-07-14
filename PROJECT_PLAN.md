@@ -163,11 +163,11 @@ This plan decomposes the Reconciliation service into ordered implementation stag
 - [ ] Add integration tests with Kafka + PostgreSQL via testcontainers.
 - [x] Add API tests for all REST endpoints.
 - [x] Configure `ruff` lint and `mypy` type-check with `make lint` / `make typecheck`.
-- [x] Configure pytest with coverage target and Codecov upload.
+- [x] Configure pytest with coverage reporting and Codecov upload.
 - [x] Write `Dockerfile` and `docker-compose.yml` (service + Postgres + Kafka).
 - [x] Add GitHub Actions CI workflow running lint, typecheck, tests, coverage.
 
 **Acceptance criteria:**
 - `make test`, `make lint`, `make typecheck` all pass locally and in CI.
-- Coverage meets project threshold and is reported to Codecov.
+- Coverage reported to Codecov.
 - Service runs end-to-end via `docker-compose up`.
