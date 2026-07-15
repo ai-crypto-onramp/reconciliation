@@ -192,6 +192,10 @@ class FakeRepository:
             items = [r for r in items if r["asset"] == asset or r["asset"] is None]
         return [_DictObj(r) for r in items]
 
+    async def list_rules(self, source: str | None = None) -> Sequence[Any]:
+        items = self._rules if source is None else [r for r in self._rules if r["source"] == source]
+        return [_DictObj(r) for r in items]
+
     async def upsert_rule(self, **fields: Any) -> Any:
         for r in self._rules:
             if r["source"] == fields["source"] and r.get("asset") == fields.get("asset"):

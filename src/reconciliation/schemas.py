@@ -103,6 +103,16 @@ class ReconRunCreatedResponse(BaseModel):
     status: str
 
 
+class ReconRuleCreateRequest(BaseModel):
+    source: str = Field(..., description="Upstream source this rule applies to")
+    asset: str | None = Field(None, description="Optional asset scope; null matches all assets")
+    match_strategy: str = Field("exact", pattern="^(exact|fuzzy|batch)$")
+    tolerance_seconds: int = Field(300, ge=0)
+    escalation_age_minutes: int = Field(60, ge=0)
+    auto_resolve_timing: bool = True
+    config: dict[str, Any] = Field(default_factory=dict)
+
+
 def _utcnow() -> datetime:
     return datetime.now(tz=UTC)
 
@@ -149,6 +159,7 @@ __all__ = [
     "ReconRunCreateRequest",
     "ReconRunOut",
     "ReconRunCreatedResponse",
+    "ReconRuleCreateRequest",
     "BreakAlertEvent",
     "BreakAuditEvent",
     "SOURCES",

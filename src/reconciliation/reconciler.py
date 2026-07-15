@@ -136,6 +136,9 @@ class Reconciler:
     async def get_run(self, run_id: int) -> Any | None:
         return await self.repo.get_recon_run(run_id)
 
+    async def list_recon_runs(self, source: str | None = None) -> Sequence[Any]:
+        return await self.repo.list_recon_runs(source)
+
     async def list_breaks(self, **filters: Any) -> Sequence[Any]:
         return await self.repo.list_breaks(**filters)
 
@@ -215,6 +218,14 @@ class Reconciler:
             if count >= 100:  # safety cap for test loops
                 break
         return count
+
+    async def list_rules(self, source: str | None = None) -> Sequence[Any]:
+        return await self.repo.list_rules(source)
+
+    async def upsert_rule(self, **fields: Any) -> Any:
+        rule = await self.repo.upsert_rule(**fields)
+        await self.repo.commit()
+        return rule
 
     async def _external_entries_for(self, source: str) -> list[ExternalEntry]:
         events = await self.repo.list_external_events(source=source, limit=10_000)
@@ -355,6 +366,10 @@ class _LazyRepo:
     async def get_rules(self, source: str, asset: str | None = None) -> Sequence[Any]:
         repo = await self._ensure()
         return await repo.get_rules(source, asset)
+
+    async def list_rules(self, source: str | None = None) -> Sequence[Any]:
+        repo = await self._ensure()
+        return await repo.list_rules(source)
 
     async def upsert_rule(self, **fields: Any) -> Any:
         repo = await self._ensure()

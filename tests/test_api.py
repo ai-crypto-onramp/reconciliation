@@ -140,3 +140,59 @@ async def test_healthz_ok(client):
     resp = await client.get("http://testserver/healthz")
     assert resp.status_code == 200
     assert resp.json() == {"status": "ok"}
+
+
+@pytest.mark.asyncio
+async def test_list_recon_runs(client, fake_repo):
+    await fake_repo.create_recon_run(source="rails", scope="daily")
+    await fake_repo.create_recon_run(source="ledger", scope="daily")
+    resp = await client.get("http://testserver/v1/recon-runs")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 2
+    assert len(body["recon_runs"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_list_recon_runs_filter_by_source(client, fake_repo):
+    await fake_repo.create_recon_run(source="rails", scope="daily")
+    await fake_repo.create_recon_run(source="ledger", scope="daily")
+    resp = await client.get("http://testserver/v1/recon-runs?source=rails")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 1
+    assert body["recon_runs"][0]["source"] == "rails"
+
+
+@pytest.mark.asyncio
+async def test_list_recon_rules_empty(client):
+    resp = await client.get("http://testserver/v1/recon-rules")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 0
+    assert body["recon_rules"] == []
+
+
+@pytest.mark.asyncio
+async def test_create_and_list_recon_rule(client):
+    payload = {
+        "source": "rails",
+        "asset": "USD",
+        "match_strategy": "fuzzy",
+        "tolerance_seconds": 120,
+        "escalation_age_minutes": 30,
+        "auto_resolve_timing": True,
+        "config": {"threshold": 0.01},
+    }
+    resp = await client.post("http://testserver/v1/recon-rules", json=payload)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["source"] == "rails"
+    assert body["match_strategy"] == "fuzzy"
+    assert body["tolerance_seconds"] == 120
+
+    resp = await client.get("http://testserver/v1/recon-rules")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["total"] == 1
+    assert body["recon_rules"][0]["source"] == "rails"

@@ -66,6 +66,7 @@ class Repository(Protocol):
     ) -> Sequence[Break]: ...
 
     async def get_rules(self, source: str, asset: str | None = None) -> Sequence[ReconRule]: ...
+    async def list_rules(self, source: str | None = None) -> Sequence[ReconRule]: ...
     async def upsert_rule(self, **fields: Any) -> ReconRule: ...
 
     async def commit(self) -> None: ...
@@ -217,6 +218,13 @@ class SqlRepository:
         stmt = select(ReconRule).where(ReconRule.source == source)
         if asset is not None:
             stmt = stmt.where((ReconRule.asset == asset) | (ReconRule.asset.is_(None)))
+        return (await self.session.execute(stmt)).scalars().all()
+
+    async def list_rules(self, source: str | None = None) -> Sequence[ReconRule]:
+        stmt = select(ReconRule)
+        if source is not None:
+            stmt = stmt.where(ReconRule.source == source)
+        stmt = stmt.order_by(ReconRule.source, ReconRule.asset.nulls_last())
         return (await self.session.execute(stmt)).scalars().all()
 
     async def upsert_rule(self, **fields: Any) -> ReconRule:

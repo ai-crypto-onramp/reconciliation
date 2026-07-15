@@ -21,6 +21,7 @@ from .reports.generator import archive_run_report, export_breaks, generate_run_r
 from .schemas import (
     EscalateBreakRequest,
     ReconRunCreateRequest,
+    ReconRuleCreateRequest,
     ResolveBreakRequest,
 )
 from .storage import InMemoryObjectStorage, build_storage
@@ -202,6 +203,15 @@ def _register_routes(app: FastAPI) -> None:
             raise HTTPException(status_code=404, detail="break not found")
         return {"status": "escalated", "break_id": break_id}
 
+    @app.get("/v1/recon-runs")
+    async def list_recon_runs(
+        request: Request,
+        source: str | None = Query(None),
+    ) -> dict[str, Any]:
+        recon = _get_reconciler(request)
+        runs = await recon.list_recon_runs(source=source)
+        return {"recon_runs": [_serialize_run(r) for r in runs], "total": len(runs)}
+
     @app.get("/v1/recon-runs/{run_id}")
     async def get_recon_run(request: Request, run_id: int) -> dict[str, Any]:
         recon = _get_reconciler(request)
@@ -240,6 +250,31 @@ def _register_routes(app: FastAPI) -> None:
         key = await archive_run_report(recon.repo, run, storage, bucket)
         url = await storage.signed_url(bucket, key)
         return {"bucket": bucket, "key": key, "signed_url": url}
+
+    @app.get("/v1/recon-rules")
+    async def list_recon_rules(
+        request: Request,
+        source: str | None = Query(None),
+    ) -> dict[str, Any]:
+        recon = _get_reconciler(request)
+        rules = await recon.list_rules(source=source)
+        return {"recon_rules": [_serialize_rule(r) for r in rules], "total": len(rules)}
+
+    @app.post("/v1/recon-rules")
+    async def create_recon_rule(
+        request: Request, body: ReconRuleCreateRequest
+    ) -> dict[str, Any]:
+        recon = _get_reconciler(request)
+        rule = await recon.upsert_rule(
+            source=body.source,
+            asset=body.asset,
+            match_strategy=body.match_strategy,
+            tolerance_seconds=body.tolerance_seconds,
+            escalation_age_minutes=body.escalation_age_minutes,
+            auto_resolve_timing=body.auto_resolve_timing,
+            config=body.config,
+        )
+        return _serialize_rule(rule)
 
     @app.get("/v1/breaks-export")
     async def breaks_export(
@@ -307,6 +342,21 @@ def _serialize_run(run: Any) -> dict[str, Any]:
         "breaks_count": run.breaks_count,
         "started_at": run.started_at.isoformat() if run.started_at else None,
         "completed_at": run.completed_at.isoformat() if run.completed_at else None,
+    }
+
+
+def _serialize_rule(rule: Any) -> dict[str, Any]:
+    return {
+        "id": rule.id,
+        "source": rule.source,
+        "asset": rule.asset,
+        "match_strategy": rule.match_strategy,
+        "tolerance_seconds": rule.tolerance_seconds,
+        "escalation_age_minutes": rule.escalation_age_minutes,
+        "auto_resolve_timing": rule.auto_resolve_timing,
+        "config": rule.config,
+        "created_at": rule.created_at.isoformat() if getattr(rule, "created_at", None) else None,
+        "updated_at": rule.updated_at.isoformat() if getattr(rule, "updated_at", None) else None,
     }
 
 
