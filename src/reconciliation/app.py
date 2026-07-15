@@ -115,6 +115,14 @@ def create_app(reconciler: Reconciler | None = None) -> FastAPI:
         app.state.producer = InMemoryProducer()
         app.state.storage = build_storage(get_settings())
 
+        @app.on_event("startup")
+        async def _init_db() -> None:
+            settings = get_settings()
+            if settings.db_url and settings.db_url != "sqlite+aiosqlite:///:memory:":
+                from .db.session import async_engine_factory, init_db
+
+                await init_db(async_engine_factory(settings.db_url))
+
     _register_routes(app)
     return app
 
