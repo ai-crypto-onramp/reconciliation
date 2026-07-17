@@ -31,11 +31,11 @@ async def test_archive_run_report_round_trip(fake_repo):
     from reconciliation.reports.generator import archive_run_report
     from reconciliation.storage import InMemoryObjectStorage
 
-    run = await fake_repo.create_recon_run(source="rails", scope="daily")
+    run = await fake_repo.create_recon_run(source="RAILS", scope="daily")
     await fake_repo.complete_recon_run(run.id, matched=1, unmatched=0, breaks=0)
     run_obj = await fake_repo.get_recon_run(run.id)
     storage = InMemoryObjectStorage()
     key = await archive_run_report(fake_repo, run_obj, storage, "reports")
-    assert key == f"reports/rails/{run.id}.csv"
+    assert key == f"reports/RAILS/{run.id}.csv"
     data = await storage.get("reports", key)
     assert b"break_id" in data

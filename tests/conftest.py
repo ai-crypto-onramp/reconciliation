@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import AsyncIterator, Sequence
 from datetime import UTC, datetime
 from typing import Any
@@ -12,6 +13,14 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from reconciliation.db.models import Base
 from reconciliation.db.repository import Repository, SqlRepository
+
+
+def _new_uuid() -> uuid.UUID:
+    """Generate a UUID; prefers v7 on Python 3.14+, falls back to v4."""
+    gen = getattr(uuid, "uuid7", None)
+    if gen is not None:
+        return gen()
+    return uuid.uuid4()
 
 
 class FakeRepository:
@@ -31,10 +40,9 @@ class FakeRepository:
         self._rules: list[dict[str, Any]] = []
         self._next_id = 1
 
-    def _id(self) -> int:
-        i = self._next_id
+    def _id(self) -> uuid.UUID:
         self._next_id += 1
-        return i
+        return _new_uuid()
 
     async def upsert_external_event(
         self, source: str, external_event_id: str, payload: dict[str, Any]
@@ -54,8 +62,12 @@ class FakeRepository:
         self._event_ids.add(key)
         return _DictObj(record), True
 
-    async def list_external_events(self, source: str | None = None, limit: int = 1000) -> Sequence[Any]:
-        items = self._events if source is None else [e for e in self._events if e["source"] == source]
+    async def list_external_events(
+        self, source: str | None = None, limit: int = 1000
+    ) -> Sequence[Any]:
+        items = (
+            self._events if source is None else [e for e in self._events if e["source"] == source]
+        )
         return [_DictObj(e) for e in items[:limit]]
 
     async def create_recon_run(self, source: str, scope: str) -> Any:
@@ -63,7 +75,7 @@ class FakeRepository:
             "id": self._id(),
             "source": source,
             "scope": scope,
-            "status": "running",
+            "status": "RUNNING",
             "matched_count": 0,
             "unmatched_count": 0,
             "breaks_count": 0,
@@ -73,14 +85,20 @@ class FakeRepository:
         self._runs.append(record)
         return _DictObj(record)
 
-    async def get_recon_run(self, run_id: int) -> Any | None:
+    async def get_recon_run(self, run_id: uuid.UUID) -> Any | None:
         for r in self._runs:
             if r["id"] == run_id:
                 return _DictObj(r)
         return None
 
     async def complete_recon_run(
-        self, run_id: int, *, matched: int, unmatched: int, breaks: int, status: str = "completed"
+        self,
+        run_id: uuid.UUID,
+        *,
+        matched: int,
+        unmatched: int,
+        breaks: int,
+        status: str = "COMPLETED",
     ) -> Any | None:
         for r in self._runs:
             if r["id"] == run_id:
@@ -107,7 +125,7 @@ class FakeRepository:
             "reference": fields.get("reference"),
             "internal_amount": fields.get("internal_amount"),
             "external_amount": fields.get("external_amount"),
-            "status": fields.get("status", "open"),
+            "status": fields.get("status", "OPEN"),
             "detected_at": fields.get("detected_at", datetime.now(tz=UTC)),
             "resolved_at": fields.get("resolved_at"),
             "age_seconds": fields.get("age_seconds", 0),
@@ -116,7 +134,7 @@ class FakeRepository:
         self._breaks.append(record)
         return _DictObj(record)
 
-    async def get_break(self, break_id: int) -> Any | None:
+    async def get_break(self, break_id: uuid.UUID) -> Any | None:
         for b in self._breaks:
             if b["id"] == break_id:
                 return _DictObj(b)
@@ -142,20 +160,20 @@ class FakeRepository:
         return [_DictObj(b) for b in items[:limit]]
 
     async def update_break_status(
-        self, break_id: int, status: str, age_seconds: int | None = None
+        self, break_id: uuid.UUID, status: str, age_seconds: int | None = None
     ) -> Any | None:
         for b in self._breaks:
             if b["id"] == break_id:
                 b["status"] = status
                 if age_seconds is not None:
                     b["age_seconds"] = age_seconds
-                if status in ("resolved", "closed") and b["resolved_at"] is None:
+                if status in ("RESOLVED", "CLOSED") and b["resolved_at"] is None:
                     b["resolved_at"] = datetime.now(tz=UTC)
                 return _DictObj(b)
         return None
 
     async def add_break_resolution(
-        self, break_id: int, type: str, actor: str, note: str | None = None
+        self, break_id: uuid.UUID, type: str, actor: str, note: str | None = None
     ) -> Any | None:
         for b in self._breaks:
             if b["id"] == break_id:
@@ -180,8 +198,8 @@ class FakeRepository:
             for b in self._breaks
             if b["source"] == source
             and b["asset"] == asset
-            and b["classification"] == "timing"
-            and b["status"] == "open"
+            and b["classification"] == "TIMING"
+            and b["status"] == "OPEN"
             and (reference is None or b["reference"] == reference)
         ]
         return [_DictObj(b) for b in items]

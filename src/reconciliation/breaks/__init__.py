@@ -7,6 +7,7 @@ balance delta produces a break.
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
@@ -29,11 +30,11 @@ def classify_timing(
     and expect auto-resolution; otherwise it's a genuine discrepancy.
     """
     if ledger_ts is None or external_ts is None:
-        return "timing"
+        return "TIMING"
     delta = abs((ledger_ts - external_ts).total_seconds())
     if delta <= tolerance_seconds:
-        return "timing"
-    return "real"
+        return "TIMING"
+    return "REAL"
 
 
 def classify_amount_mismatch(
@@ -44,17 +45,17 @@ def classify_amount_mismatch(
     """A matched pair with a non-zero delta is classified as timing when the
     delta is within tolerance, else real."""
     if pair.delta is None or pair.delta == Decimal("0"):
-        return "timing"
+        return "TIMING"
     if abs(float(pair.delta)) <= tolerance_seconds:
-        return "timing"
-    return "real"
+        return "TIMING"
+    return "REAL"
 
 
 async def detect_and_persist_breaks(
     repo: Repository,
     result: MatchResult,
     *,
-    run_id: int,
+    run_id: uuid.UUID,
     source: str,
     tolerance_seconds: int = 300,
     now: datetime | None = None,
@@ -75,7 +76,7 @@ async def detect_and_persist_breaks(
             external_ts=None,
             now=now,
         )
-        break_type = "timing_gap" if classification == "timing" else "missing_entry"
+        break_type = "TIMING_GAP" if classification == "TIMING" else "MISSING_ENTRY"
         brk = await repo.create_break(
             run_id=run_id,
             source=source,
@@ -85,17 +86,24 @@ async def detect_and_persist_breaks(
             classification=classification,
             internal_amount=le.amount,
             external_amount=None,
-            status="open",
+            status="OPEN",
             detected_at=now,
             age_seconds=0,
         )
-        created.append({"id": brk.id, "type": break_type, "classification": classification, "action": "detected"})
+        created.append(
+            {
+                "id": brk.id,
+                "type": break_type,
+                "classification": classification,
+                "action": "detected",
+            }
+        )
 
     for unmatched_external in result.unmatched_external:
         ex = unmatched_external.entry
         # Missing ledger entry for an external confirmation.
-        classification = "real"
-        break_type = "missing_entry"
+        classification = "REAL"
+        break_type = "MISSING_ENTRY"
         brk = await repo.create_break(
             run_id=run_id,
             source=source,
@@ -105,11 +113,18 @@ async def detect_and_persist_breaks(
             classification=classification,
             internal_amount=None,
             external_amount=ex.amount,
-            status="open",
+            status="OPEN",
             detected_at=now,
             age_seconds=0,
         )
-        created.append({"id": brk.id, "type": break_type, "classification": classification, "action": "detected"})
+        created.append(
+            {
+                "id": brk.id,
+                "type": break_type,
+                "classification": classification,
+                "action": "detected",
+            }
+        )
 
     for balance in result.balances:
         if balance.matched:
@@ -119,16 +134,21 @@ async def detect_and_persist_breaks(
             source=balance.source or source,
             asset=balance.asset,
             reference=None,
-            type="amount_mismatch",
-            classification="real",
+            type="AMOUNT_MISMATCH",
+            classification="REAL",
             internal_amount=balance.expected_closing,
             external_amount=balance.actual_closing,
-            status="open",
+            status="OPEN",
             detected_at=now,
             age_seconds=0,
         )
         created.append(
-            {"id": brk.id, "type": "amount_mismatch", "classification": "real", "action": "detected"}
+            {
+                "id": brk.id,
+                "type": "AMOUNT_MISMATCH",
+                "classification": "REAL",
+                "action": "detected",
+            }
         )
 
     for duplicate in result.duplicates:
@@ -137,15 +157,17 @@ async def detect_and_persist_breaks(
             source=duplicate.source,
             asset=duplicate.asset,
             reference=duplicate.reference,
-            type="duplicate",
-            classification="real",
+            type="DUPLICATE",
+            classification="REAL",
             internal_amount=None,
             external_amount=duplicate.amount,
-            status="open",
+            status="OPEN",
             detected_at=now,
             age_seconds=0,
         )
-        created.append({"id": brk.id, "type": "duplicate", "classification": "real", "action": "detected"})
+        created.append(
+            {"id": brk.id, "type": "DUPLICATE", "classification": "REAL", "action": "detected"}
+        )
 
     return created
 

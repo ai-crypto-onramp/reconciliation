@@ -15,20 +15,20 @@ async def test_timing_break_auto_resolves_when_confirmation_arrives(fake_repo):
     now = datetime.now(tz=UTC)
     # Create an open timing break for a missing external confirmation.
     await fake_repo.create_break(
-        source="rails",
+        source="RAILS",
         asset="USD",
         reference="ref1",
-        type="timing_gap",
-        classification="timing",
+        type="TIMING_GAP",
+        classification="TIMING",
         internal_amount=Decimal("100"),
         external_amount=None,
-        status="open",
+        status="OPEN",
         detected_at=now - timedelta(minutes=5),
         age_seconds=300,
     )
     resolutions = await attempt_auto_resolve(
         fake_repo,
-        source="rails",
+        source="RAILS",
         asset="USD",
         reference="ref1",
         external_amount=Decimal("100"),
@@ -39,26 +39,26 @@ async def test_timing_break_auto_resolves_when_confirmation_arrives(fake_repo):
     assert len(resolutions) == 1
     assert resolutions[0]["action"] == "auto-resolved"
     breaks = await fake_repo.list_breaks()
-    assert breaks[0].status == "resolved"
+    assert breaks[0].status == "RESOLVED"
 
 
 @pytest.mark.asyncio
 async def test_auto_resolve_disabled_leaves_break_open(fake_repo):
     now = datetime.now(tz=UTC)
     await fake_repo.create_break(
-        source="rails",
+        source="RAILS",
         asset="USD",
         reference="ref1",
-        type="timing_gap",
-        classification="timing",
+        type="TIMING_GAP",
+        classification="TIMING",
         internal_amount=Decimal("100"),
         external_amount=None,
-        status="open",
+        status="OPEN",
         detected_at=now,
     )
     resolutions = await attempt_auto_resolve(
         fake_repo,
-        source="rails",
+        source="RAILS",
         asset="USD",
         reference="ref1",
         external_amount=Decimal("100"),
@@ -67,26 +67,26 @@ async def test_auto_resolve_disabled_leaves_break_open(fake_repo):
     )
     assert resolutions == []
     breaks = await fake_repo.list_breaks()
-    assert breaks[0].status == "open"
+    assert breaks[0].status == "OPEN"
 
 
 @pytest.mark.asyncio
 async def test_amount_mismatch_does_not_auto_resolve(fake_repo):
     now = datetime.now(tz=UTC)
     await fake_repo.create_break(
-        source="rails",
+        source="RAILS",
         asset="USD",
         reference="ref1",
-        type="timing_gap",
-        classification="timing",
+        type="TIMING_GAP",
+        classification="TIMING",
         internal_amount=Decimal("100"),
         external_amount=None,
-        status="open",
+        status="OPEN",
         detected_at=now,
     )
     resolutions = await attempt_auto_resolve(
         fake_repo,
-        source="rails",
+        source="RAILS",
         asset="USD",
         reference="ref1",
         external_amount=Decimal("99"),  # mismatched
@@ -95,26 +95,26 @@ async def test_amount_mismatch_does_not_auto_resolve(fake_repo):
     )
     assert resolutions == []
     breaks = await fake_repo.list_breaks()
-    assert breaks[0].status == "open"
+    assert breaks[0].status == "OPEN"
 
 
 @pytest.mark.asyncio
 async def test_auto_resolution_appends_resolution_record(fake_repo):
     now = datetime.now(tz=UTC)
     brk = await fake_repo.create_break(
-        source="rails",
+        source="RAILS",
         asset="USD",
         reference="ref1",
-        type="timing_gap",
-        classification="timing",
+        type="TIMING_GAP",
+        classification="TIMING",
         internal_amount=Decimal("100"),
         external_amount=None,
-        status="open",
+        status="OPEN",
         detected_at=now,
     )
     await attempt_auto_resolve(
         fake_repo,
-        source="rails",
+        source="RAILS",
         asset="USD",
         reference="ref1",
         external_amount=Decimal("100"),
@@ -123,5 +123,5 @@ async def test_auto_resolution_appends_resolution_record(fake_repo):
     )
     updated = await fake_repo.get_break(brk.id)
     assert len(updated.resolutions) == 1
-    assert updated.resolutions[0]["type"] == "auto"
+    assert updated.resolutions[0]["type"] == "AUTO"
     assert updated.resolutions[0]["actor"] == "system"

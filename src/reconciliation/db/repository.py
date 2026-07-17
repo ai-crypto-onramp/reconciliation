@@ -7,6 +7,7 @@ the same interface without any database.
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any, Protocol
@@ -30,20 +31,20 @@ class Repository(Protocol):
     ) -> Sequence[ExternalEvent]: ...
 
     async def create_recon_run(self, source: str, scope: str) -> ReconRun: ...
-    async def get_recon_run(self, run_id: int) -> ReconRun | None: ...
+    async def get_recon_run(self, run_id: uuid.UUID) -> ReconRun | None: ...
     async def complete_recon_run(
         self,
-        run_id: int,
+        run_id: uuid.UUID,
         *,
         matched: int,
         unmatched: int,
         breaks: int,
-        status: str = "completed",
+        status: str = "COMPLETED",
     ) -> ReconRun | None: ...
     async def list_recon_runs(self, source: str | None = None) -> Sequence[ReconRun]: ...
 
     async def create_break(self, **fields: Any) -> Break: ...
-    async def get_break(self, break_id: int) -> Break | None: ...
+    async def get_break(self, break_id: uuid.UUID) -> Break | None: ...
     async def list_breaks(
         self,
         *,
@@ -56,10 +57,10 @@ class Repository(Protocol):
         limit: int = 1000,
     ) -> Sequence[Break]: ...
     async def update_break_status(
-        self, break_id: int, status: str, age_seconds: int | None = None
+        self, break_id: uuid.UUID, status: str, age_seconds: int | None = None
     ) -> Break | None: ...
     async def add_break_resolution(
-        self, break_id: int, type: str, actor: str, note: str | None = None
+        self, break_id: uuid.UUID, type: str, actor: str, note: str | None = None
     ) -> BreakResolution | None: ...
     async def open_timing_breaks_for(
         self, source: str, asset: str, reference: str | None
@@ -102,22 +103,22 @@ class SqlRepository:
         return (await self.session.execute(stmt)).scalars().all()
 
     async def create_recon_run(self, source: str, scope: str) -> ReconRun:
-        run = ReconRun(source=source, scope=scope, status="running")
+        run = ReconRun(source=source, scope=scope, status="RUNNING")
         self.session.add(run)
         await self.session.flush()
         return run
 
-    async def get_recon_run(self, run_id: int) -> ReconRun | None:
+    async def get_recon_run(self, run_id: uuid.UUID) -> ReconRun | None:
         return await self.session.get(ReconRun, run_id)
 
     async def complete_recon_run(
         self,
-        run_id: int,
+        run_id: uuid.UUID,
         *,
         matched: int,
         unmatched: int,
         breaks: int,
-        status: str = "completed",
+        status: str = "COMPLETED",
     ) -> ReconRun | None:
         run = await self.get_recon_run(run_id)
         if run is None:
@@ -126,7 +127,9 @@ class SqlRepository:
         run.unmatched_count = unmatched
         run.breaks_count = breaks
         run.status = status
-        run.completed_at = datetime.now(run.started_at.tzinfo) if run.started_at else datetime.utcnow()
+        run.completed_at = (
+            datetime.now(run.started_at.tzinfo) if run.started_at else datetime.utcnow()
+        )
         await self.session.flush()
         return run
 
@@ -143,7 +146,7 @@ class SqlRepository:
         await self.session.flush()
         return brk
 
-    async def get_break(self, break_id: int) -> Break | None:
+    async def get_break(self, break_id: uuid.UUID) -> Break | None:
         return await self.session.get(Break, break_id)
 
     async def list_breaks(
@@ -177,7 +180,7 @@ class SqlRepository:
         return (await self.session.execute(stmt)).scalars().all()
 
     async def update_break_status(
-        self, break_id: int, status: str, age_seconds: int | None = None
+        self, break_id: uuid.UUID, status: str, age_seconds: int | None = None
     ) -> Break | None:
         brk = await self.get_break(break_id)
         if brk is None:
@@ -185,13 +188,13 @@ class SqlRepository:
         brk.status = status
         if age_seconds is not None:
             brk.age_seconds = age_seconds
-        if status in ("resolved", "closed") and brk.resolved_at is None:
+        if status in ("RESOLVED", "CLOSED") and brk.resolved_at is None:
             brk.resolved_at = datetime.now(tz=UTC)
         await self.session.flush()
         return brk
 
     async def add_break_resolution(
-        self, break_id: int, type: str, actor: str, note: str | None = None
+        self, break_id: uuid.UUID, type: str, actor: str, note: str | None = None
     ) -> BreakResolution | None:
         brk = await self.get_break(break_id)
         if brk is None:
@@ -207,8 +210,8 @@ class SqlRepository:
         stmt = select(Break).where(
             Break.source == source,
             Break.asset == asset,
-            Break.classification == "timing",
-            Break.status == "open",
+            Break.classification == "TIMING",
+            Break.status == "OPEN",
         )
         if reference is not None:
             stmt = stmt.where(Break.reference == reference)

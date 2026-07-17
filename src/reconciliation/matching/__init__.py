@@ -110,7 +110,7 @@ class MatchStrategy(Protocol):
 class ExactMatchStrategy:
     """Match entries whose amount, reference, and counterparty align precisely."""
 
-    name = "exact"
+    name = "EXACT"
 
     def match(
         self,
@@ -162,7 +162,7 @@ class FuzzyMatchStrategy:
     window are reported as unmatched so the break detector can classify them.
     """
 
-    name = "fuzzy"
+    name = "FUZZY"
 
     def match(
         self,
@@ -195,7 +195,9 @@ class FuzzyMatchStrategy:
                     break
             if best_idx >= 0:
                 result.matched.append(
-                    MatchedPair(le, external[best_idx], self.name, delta=Decimal(str(best_delta or 0)))
+                    MatchedPair(
+                        le, external[best_idx], self.name, delta=Decimal(str(best_delta or 0))
+                    )
                 )
                 used_external.add(best_idx)
             else:
@@ -214,7 +216,7 @@ class BalanceRollforwardStrategy:
     deltas surface as candidate breaks.
     """
 
-    name = "balance_rollforward"
+    name = "BALANCE_ROLLFORWARD"
 
     def match(
         self,
@@ -266,14 +268,14 @@ class BalanceRollforwardStrategy:
 
 
 STRATEGIES: dict[str, type[MatchStrategy]] = {
-    "exact": ExactMatchStrategy,
-    "fuzzy": FuzzyMatchStrategy,
-    "balance_rollforward": BalanceRollforwardStrategy,
+    "EXACT": ExactMatchStrategy,
+    "FUZZY": FuzzyMatchStrategy,
+    "BALANCE_ROLLFORWARD": BalanceRollforwardStrategy,
 }
 
 
 def get_strategy(name: str) -> MatchStrategy:
-    """Return a strategy instance by name (default: ``exact``)."""
+    """Return a strategy instance by name (default: ``EXACT``)."""
     cls = STRATEGIES.get(name, ExactMatchStrategy)
     return cls()
 

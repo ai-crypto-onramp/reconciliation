@@ -7,6 +7,7 @@ escalation worker promotes breaks older than ``ESCALATION_AGE_MINUTES`` to
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime
 from typing import Any
 
@@ -20,12 +21,12 @@ from . import compute_age
 async def update_ages(repo: Repository, *, now: datetime | None = None) -> int:
     """Recompute ``age_seconds`` for every open break. Returns count updated."""
     now = now or datetime.now(tz=UTC)
-    open_breaks = await repo.list_breaks(status="open")
+    open_breaks = await repo.list_breaks(status="OPEN")
     count = 0
     for brk in open_breaks:
         new_age = compute_age(brk.detected_at, now)
         if new_age != brk.age_seconds:
-            await repo.update_break_status(brk.id, "open", age_seconds=new_age)
+            await repo.update_break_status(brk.id, "OPEN", age_seconds=new_age)
             count += 1
     return count
 
@@ -43,14 +44,14 @@ async def escalate_stale_breaks(
     list of escalation events for inspection.
     """
     now = now or datetime.now(tz=UTC)
-    open_breaks = await repo.list_breaks(status="open")
+    open_breaks = await repo.list_breaks(status="OPEN")
     threshold_seconds = settings.escalation_age_minutes * 60
     emitted: list[dict[str, Any]] = []
     for brk in open_breaks:
         age = compute_age(brk.detected_at, now)
         if age < threshold_seconds:
             continue
-        await repo.update_break_status(brk.id, "escalated", age_seconds=age)
+        await repo.update_break_status(brk.id, "ESCALATED", age_seconds=age)
         alert = BreakAlertEvent(
             break_id=brk.id,
             type=brk.type,
@@ -70,8 +71,8 @@ async def escalate_stale_breaks(
             break_id=brk.id,
             action="escalated",
             actor="system",
-            before={"status": "open", "age_seconds": brk.age_seconds},
-            after={"status": "escalated", "age_seconds": age},
+            before={"status": "OPEN", "age_seconds": brk.age_seconds},
+            after={"status": "ESCALATED", "age_seconds": age},
             timestamp=now,
         )
         await producer.send("break-alert", alert.model_dump(mode="json"), key=str(brk.id))
@@ -81,8 +82,8 @@ async def escalate_stale_breaks(
                 "break_id": brk.id,
                 "action": "escalated",
                 "actor": "system",
-                "before": {"status": "open"},
-                "after": {"status": "escalated"},
+                "before": {"status": "OPEN"},
+                "after": {"status": "ESCALATED"},
             }
         )
     return emitted
@@ -92,7 +93,7 @@ async def manually_escalate_break(
     repo: Repository,
     producer: Producer,
     *,
-    break_id: int,
+    break_id: uuid.UUID,
     actor: str,
     note: str | None = None,
     now: datetime | None = None,
@@ -104,8 +105,8 @@ async def manually_escalate_break(
         return None
     before_status = brk.status
     age = compute_age(brk.detected_at, now)
-    await repo.update_break_status(break_id, "escalated", age_seconds=age)
-    await repo.add_break_resolution(break_id=break_id, type="manual", actor=actor, note=note)
+    await repo.update_break_status(break_id, "ESCALATED", age_seconds=age)
+    await repo.add_break_resolution(break_id=break_id, type="MANUAL", actor=actor, note=note)
     alert = BreakAlertEvent(
         break_id=brk.id,
         type=brk.type,
@@ -136,5 +137,5 @@ async def manually_escalate_break(
         "action": "escalated",
         "actor": actor,
         "before": {"status": before_status},
-        "after": {"status": "escalated"},
+        "after": {"status": "ESCALATED"},
     }

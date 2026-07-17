@@ -10,8 +10,8 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from typing import Any
 
-from sqlalchemy import JSON, BigInteger, Integer, TypeDecorator, text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import JSON, BigInteger, Integer, TypeDecorator, Uuid, text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -47,33 +47,62 @@ class BigIntType(TypeDecorator):
         return dialect.type_descriptor(BigInteger())
 
 
-def _patch_jsonb_columns() -> None:
-    """Replace ``JSONB`` columns with the dialect-aware ``JSONBType``.
+class UUIDType(TypeDecorator):
+    """A UUID type that stores UUID objects on non-PostgreSQL dialects.
 
-    Done once at import time so SQLite-based tests can persist payloads. Also
-    rewrites Postgres-specific ``server_default`` literals (``'{}'::jsonb``
-    and ``now()``) to SQLite-compatible equivalents.
+    The ORM models use ``postgresql.UUID(as_uuid=False)`` to match the Alembic
+    migration, but the app generates ``uuid.uuid7()`` objects as defaults. On
+    PostgreSQL the native UUID type round-trips those objects; on SQLite (used
+    by the test suite) the ``as_uuid=False`` bind processor expects strings, so
+    we swap in ``Uuid(as_uuid=True, native_uuid=False)`` which accepts and
+    returns ``uuid.UUID`` objects via a CHAR(32) storage format.
+    """
+
+    impl = Uuid
+    cache_ok = True
+
+    def load_dialect_impl(self, dialect: Any) -> Any:  # noqa: ANN401
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(UUID(as_uuid=False))
+        return dialect.type_descriptor(Uuid(as_uuid=True, native_uuid=False))
+
+
+def _patch_jsonb_columns() -> None:
+    """Replace ``JSONB``/``UUID`` columns with dialect-aware types.
+
+    Done once at import time so SQLite-based tests can persist payloads and
+    round-trip UUID primary/foreign keys. Also rewrites Postgres-specific
+    ``server_default`` literals (``'{}'::jsonb`` and ``now()``) to
+    SQLite-compatible equivalents.
     """
     for table in Base.metadata.tables.values():
         for column in table.columns:
             if isinstance(column.type, JSONB):
                 column.type = JSONBType()
+            if isinstance(column.type, UUID):
+                column.type = UUIDType()
             if isinstance(column.type, BigInteger):
                 column.type = BigIntType()
             if column.server_default is not None:
                 arg = getattr(column.server_default, "arg", None)
                 if arg is None:
-                    continue
-                raw = getattr(arg, "text", arg)
-                if not isinstance(raw, str):
-                    continue
-                new_raw = raw
-                if "::jsonb" in new_raw:
-                    new_raw = new_raw.replace("::jsonb", "")
-                if new_raw == "now()":
-                    new_raw = "CURRENT_TIMESTAMP"
-                if new_raw != raw:
-                    column.server_default.arg = text(new_raw)
+                    pass
+                else:
+                    raw = getattr(arg, "text", arg)
+                    if isinstance(raw, str):
+                        new_raw = raw
+                        if "::jsonb" in new_raw:
+                            new_raw = new_raw.replace("::jsonb", "")
+                        if new_raw == "now()":
+                            new_raw = "CURRENT_TIMESTAMP"
+                        if new_raw != raw:
+                            column.server_default.arg = text(new_raw)
+            if column.onupdate is not None:
+                arg = getattr(column.onupdate, "arg", None)
+                if arg is not None:
+                    raw = getattr(arg, "text", arg)
+                    if isinstance(raw, str) and raw == "now()":
+                        column.onupdate.arg = text("CURRENT_TIMESTAMP")
 
 
 _patch_jsonb_columns()

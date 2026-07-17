@@ -11,13 +11,16 @@ import argparse
 import asyncio
 import logging
 import sys
+import uuid
 
 from .config import SOURCES, get_settings
 from .reconciler import Reconciler
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="reconciliation", description="Reconciliation service CLI")
+    parser = argparse.ArgumentParser(
+        prog="reconciliation", description="Reconciliation service CLI"
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     run_p = sub.add_parser("run", help="Trigger a recon run for a source/scope")
@@ -26,10 +29,10 @@ def build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--mode", choices=["intraday", "eod"], default="eod")
 
     status_p = sub.add_parser("status", help="Show status of a recon run")
-    status_p.add_argument("--run-id", type=int, required=True)
+    status_p.add_argument("--run-id", type=uuid.UUID, required=True)
 
     report_p = sub.add_parser("report", help="Generate an EOD report for a run")
-    report_p.add_argument("--run-id", type=int, required=True)
+    report_p.add_argument("--run-id", type=uuid.UUID, required=True)
     report_p.add_argument("--out", default="-", help="output file ('-' for stdout)")
 
     return parser
@@ -43,7 +46,7 @@ async def _run_recon(source: str, scope: str, mode: str) -> int:
     return 0
 
 
-async def _run_status(run_id: int) -> int:
+async def _run_status(run_id: uuid.UUID) -> int:
     settings = get_settings()
     reconciler = Reconciler.from_settings(settings)
     run = await reconciler.get_run(run_id)
@@ -57,7 +60,7 @@ async def _run_status(run_id: int) -> int:
     return 0
 
 
-async def _run_report(run_id: int, out: str) -> int:
+async def _run_report(run_id: uuid.UUID, out: str) -> int:
     from .reports.generator import generate_run_report
 
     settings = get_settings()

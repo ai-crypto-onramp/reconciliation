@@ -42,15 +42,31 @@ async def attempt_auto_resolve(
             if external_amount != brk.internal_amount:
                 continue
         # Use fuzzy strategy to confirm the external event matches this break.
-        ledger = [LedgerEntry(reference=brk.reference or "", asset=brk.asset, amount=brk.internal_amount or Decimal("0"), timestamp=brk.detected_at)]
-        external = [ExternalEntry(external_event_id="", source=source, asset=asset, reference=reference, amount=external_amount, timestamp=external_timestamp)]
-        result = get_strategy("fuzzy").match(ledger, external, tolerance_seconds=tolerance_seconds)
+        ledger = [
+            LedgerEntry(
+                reference=brk.reference or "",
+                asset=brk.asset,
+                amount=brk.internal_amount or Decimal("0"),
+                timestamp=brk.detected_at,
+            )
+        ]
+        external = [
+            ExternalEntry(
+                external_event_id="",
+                source=source,
+                asset=asset,
+                reference=reference,
+                amount=external_amount,
+                timestamp=external_timestamp,
+            )
+        ]
+        result = get_strategy("FUZZY").match(ledger, external, tolerance_seconds=tolerance_seconds)
         if not result.matched:
             continue
-        await repo.update_break_status(brk.id, "resolved", age_seconds=0)
+        await repo.update_break_status(brk.id, "RESOLVED", age_seconds=0)
         await repo.add_break_resolution(
             break_id=brk.id,
-            type="auto",
+            type="AUTO",
             actor="system",
             note=f"auto-resolved by external event for {source}/{asset}/{reference}",
         )
@@ -59,8 +75,8 @@ async def attempt_auto_resolve(
                 "break_id": brk.id,
                 "action": "auto-resolved",
                 "actor": "system",
-                "before": {"status": "open"},
-                "after": {"status": "resolved"},
+                "before": {"status": "OPEN"},
+                "after": {"status": "RESOLVED"},
             }
         )
     return resolutions

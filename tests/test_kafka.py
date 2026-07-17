@@ -52,12 +52,18 @@ async def test_idempotent_ingest_does_not_duplicate(fake_repo):
     producer = InMemoryProducer()
     settings = Settings(auto_resolve_timing_breaks=False)
     recon = Reconciler(fake_repo, producer, settings)
-    payload = {"external_event_id": "e1", "source": "rails", "asset": "USD", "amount": "100", "reference": "ref1"}
-    _, created1 = await recon.ingest(source="rails", payload=payload)
-    _, created2 = await recon.ingest(source="rails", payload=payload)
+    payload = {
+        "external_event_id": "e1",
+        "source": "RAILS",
+        "asset": "USD",
+        "amount": "100",
+        "reference": "ref1",
+    }
+    _, created1 = await recon.ingest(source="RAILS", payload=payload)
+    _, created2 = await recon.ingest(source="RAILS", payload=payload)
     assert created1 is True
     assert created2 is False
-    events = await fake_repo.list_external_events(source="rails")
+    events = await fake_repo.list_external_events(source="RAILS")
     assert len(events) == 1
 
 
@@ -74,7 +80,7 @@ async def test_consume_once_dead_letters_poison_messages(fake_repo, monkeypatch)
 
     monkeypatch.setattr(recon, "ingest", boom)
     consumer = InMemoryConsumer(["rail-connectors"])
-    consumer.enqueue("rail-connectors", {"external_event_id": "e1", "source": "rails"})
+    consumer.enqueue("rail-connectors", {"external_event_id": "e1", "source": "RAILS"})
     await recon.consume_once(consumer)
     dlq = producer.emitted("recon-dlq")
     assert len(dlq) == 1

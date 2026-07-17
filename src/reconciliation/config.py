@@ -47,22 +47,22 @@ class Settings(BaseSettings):
 
 
 # Canonical source identifiers reused across the service.
-SOURCES: tuple[str, ...] = ("ledger", "rails", "exchanges", "onchain", "custody")
+SOURCES: tuple[str, ...] = ("LEDGER", "RAILS", "EXCHANGES", "ONCHAIN", "CUSTODY")
 
-BREAK_TYPES: tuple[str, ...] = ("amount_mismatch", "timing_gap", "missing_entry", "duplicate")
-BREAK_CLASSIFICATIONS: tuple[str, ...] = ("timing", "real")
-BREAK_STATUSES: tuple[str, ...] = ("open", "resolved", "escalated", "closed")
-RESOLUTION_TYPES: tuple[str, ...] = ("manual", "auto")
-MATCH_STRATEGIES: tuple[str, ...] = ("exact", "fuzzy", "balance_rollforward")
-RUN_STATUSES: tuple[str, ...] = ("running", "completed", "failed")
+BREAK_TYPES: tuple[str, ...] = ("AMOUNT_MISMATCH", "TIMING_GAP", "MISSING_ENTRY", "DUPLICATE")
+BREAK_CLASSIFICATIONS: tuple[str, ...] = ("TIMING", "REAL")
+BREAK_STATUSES: tuple[str, ...] = ("OPEN", "RESOLVED", "ESCALATED", "CLOSED")
+RESOLUTION_TYPES: tuple[str, ...] = ("MANUAL", "AUTO")
+MATCH_STRATEGIES: tuple[str, ...] = ("EXACT", "FUZZY", "BALANCE_ROLLFORWARD")
+RUN_STATUSES: tuple[str, ...] = ("RUNNING", "COMPLETED", "FAILED")
 
 # Topics consumed by this service from upstream producers.
 CONSUMER_TOPICS: dict[str, str] = {
-    "ledger": "ledger-accounting",
-    "rails": "rail-connectors",
-    "exchanges": "exchange-connectors",
-    "onchain": "blockchain-gateway",
-    "custody": "blockchain-gateway",
+    "LEDGER": "ledger-accounting",
+    "RAILS": "rail-connectors",
+    "EXCHANGES": "exchange-connectors",
+    "ONCHAIN": "blockchain-gateway",
+    "CUSTODY": "blockchain-gateway",
 }
 
 # Topics emitted by this service.

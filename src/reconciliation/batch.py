@@ -36,7 +36,7 @@ def eod_join(
     external_rows: list[dict[str, Any]],
     *,
     tolerance_seconds: int = 300,
-    strategy: str = "exact",
+    strategy: str = "EXACT",
 ) -> MatchResult:
     """Run an EOD batch join of ledger vs external events.
 
@@ -74,4 +74,6 @@ def eod_join(
         )
         for r in external_rows
     ]
-    return get_strategy(strategy).match(ledger_entries, external_entries, tolerance_seconds=tolerance_seconds)
+    return get_strategy(strategy).match(
+        ledger_entries, external_entries, tolerance_seconds=tolerance_seconds
+    )

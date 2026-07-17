@@ -9,6 +9,7 @@ CLI, and the Kafka consumer. It accepts a :class:`Repository` and a
 from __future__ import annotations
 
 import logging
+import uuid
 from collections.abc import Sequence
 from decimal import Decimal
 from typing import Any
@@ -114,7 +115,9 @@ class Reconciler:
             external = await self._external_entries_for(source)
         strategy_name = await self._strategy_for(source)
         strategy = get_strategy(strategy_name)
-        result = strategy.match(ledger, external, tolerance_seconds=self.settings.break_tolerance_seconds)
+        result = strategy.match(
+            ledger, external, tolerance_seconds=self.settings.break_tolerance_seconds
+        )
         created = await detect_and_persist_breaks(
             self.repo,
             result,
@@ -133,7 +136,7 @@ class Reconciler:
         await self.repo.commit()
         return completed_run if completed_run is not None else run
 
-    async def get_run(self, run_id: int) -> Any | None:
+    async def get_run(self, run_id: uuid.UUID) -> Any | None:
         return await self.repo.get_recon_run(run_id)
 
     async def list_recon_runs(self, source: str | None = None) -> Sequence[Any]:
@@ -142,31 +145,33 @@ class Reconciler:
     async def list_breaks(self, **filters: Any) -> Sequence[Any]:
         return await self.repo.list_breaks(**filters)
 
-    async def get_break(self, break_id: int) -> Any | None:
+    async def get_break(self, break_id: uuid.UUID) -> Any | None:
         return await self.repo.get_break(break_id)
 
     async def resolve_break(
-        self, break_id: int, *, actor: str, note: str | None = None
+        self, break_id: uuid.UUID, *, actor: str, note: str | None = None
     ) -> Any | None:
         brk = await self.repo.get_break(break_id)
         if brk is None:
             return None
         before = {"status": brk.status}
-        await self.repo.update_break_status(break_id, "resolved")
-        resolution = await self.repo.add_break_resolution(break_id, type="manual", actor=actor, note=note)
+        await self.repo.update_break_status(break_id, "RESOLVED")
+        resolution = await self.repo.add_break_resolution(
+            break_id, type="MANUAL", actor=actor, note=note
+        )
         await self.repo.commit()
         audit = {
             "break_id": break_id,
             "action": "manually-resolved",
             "actor": actor,
             "before": before,
-            "after": {"status": "resolved"},
+            "after": {"status": "RESOLVED"},
         }
         await self._emit_audit(audit)
         return resolution
 
     async def escalate_break(
-        self, break_id: int, *, actor: str, note: str | None = None
+        self, break_id: uuid.UUID, *, actor: str, note: str | None = None
     ) -> dict[str, Any] | None:
         return await manually_escalate_break(
             self.repo, self.producer, break_id=break_id, actor=actor, note=note
@@ -238,7 +243,9 @@ class Reconciler:
                     source=ev.source,
                     asset=payload.get("asset") or "",
                     reference=payload.get("reference"),
-                    amount=payload.get("amount") if isinstance(payload.get("amount"), (int, float, str, Decimal)) else None,
+                    amount=payload.get("amount")
+                    if isinstance(payload.get("amount"), (int, float, str, Decimal))
+                    else None,
                     counterparty=payload.get("counterparty"),
                     timestamp=payload.get("timestamp"),
                 )
@@ -249,7 +256,7 @@ class Reconciler:
         rules = await self.repo.get_rules(source)
         if rules:
             return rules[0].match_strategy
-        return "exact"
+        return "EXACT"
 
     def _source_for_topic(self, topic: str) -> str | None:
         for src, t in CONSUMER_TOPICS.items():
@@ -257,7 +264,7 @@ class Reconciler:
                 return src
         return None
 
-    async def _emit_detected(self, brk_info: dict[str, Any], run_id: int) -> None:
+    async def _emit_detected(self, brk_info: dict[str, Any], run_id: uuid.UUID) -> None:
         brk = await self.repo.get_break(brk_info["id"])
         if brk is None:
             return
@@ -291,7 +298,9 @@ class Reconciler:
             before=event.get("before", {}),
             after=event.get("after", {}),
         )
-        await self.producer.send("break-event", audit.model_dump(mode="json"), key=str(event["break_id"]))
+        await self.producer.send(
+            "break-event", audit.model_dump(mode="json"), key=str(event["break_id"])
+        )
 
 
 class _LazyRepo:
@@ -315,11 +324,15 @@ class _LazyRepo:
             self._inner = SqlRepository(session)
         return self._inner
 
-    async def upsert_external_event(self, source: str, external_event_id: str, payload: dict[str, Any]) -> tuple[Any, bool]:
+    async def upsert_external_event(
+        self, source: str, external_event_id: str, payload: dict[str, Any]
+    ) -> tuple[Any, bool]:
         repo = await self._ensure()
         return await repo.upsert_external_event(source, external_event_id, payload)
 
-    async def list_external_events(self, source: str | None = None, limit: int = 1000) -> Sequence[Any]:
+    async def list_external_events(
+        self, source: str | None = None, limit: int = 1000
+    ) -> Sequence[Any]:
         repo = await self._ensure()
         return await repo.list_external_events(source, limit)
 
@@ -327,11 +340,11 @@ class _LazyRepo:
         repo = await self._ensure()
         return await repo.create_recon_run(source, scope)
 
-    async def get_recon_run(self, run_id: int) -> Any | None:
+    async def get_recon_run(self, run_id: uuid.UUID) -> Any | None:
         repo = await self._ensure()
         return await repo.get_recon_run(run_id)
 
-    async def complete_recon_run(self, run_id: int, **kwargs: Any) -> Any | None:
+    async def complete_recon_run(self, run_id: uuid.UUID, **kwargs: Any) -> Any | None:
         repo = await self._ensure()
         return await repo.complete_recon_run(run_id, **kwargs)
 
@@ -343,7 +356,7 @@ class _LazyRepo:
         repo = await self._ensure()
         return await repo.create_break(**fields)
 
-    async def get_break(self, break_id: int) -> Any | None:
+    async def get_break(self, break_id: uuid.UUID) -> Any | None:
         repo = await self._ensure()
         return await repo.get_break(break_id)
 
@@ -351,15 +364,21 @@ class _LazyRepo:
         repo = await self._ensure()
         return await repo.list_breaks(**filters)
 
-    async def update_break_status(self, break_id: int, status: str, age_seconds: int | None = None) -> Any | None:
+    async def update_break_status(
+        self, break_id: uuid.UUID, status: str, age_seconds: int | None = None
+    ) -> Any | None:
         repo = await self._ensure()
         return await repo.update_break_status(break_id, status, age_seconds)
 
-    async def add_break_resolution(self, break_id: int, type: str, actor: str, note: str | None = None) -> Any | None:
+    async def add_break_resolution(
+        self, break_id: uuid.UUID, type: str, actor: str, note: str | None = None
+    ) -> Any | None:
         repo = await self._ensure()
         return await repo.add_break_resolution(break_id, type, actor, note)
 
-    async def open_timing_breaks_for(self, source: str, asset: str, reference: str | None) -> Sequence[Any]:
+    async def open_timing_breaks_for(
+        self, source: str, asset: str, reference: str | None
+    ) -> Sequence[Any]:
         repo = await self._ensure()
         return await repo.open_timing_breaks_for(source, asset, reference)
 

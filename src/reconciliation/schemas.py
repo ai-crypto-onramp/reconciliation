@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
@@ -34,8 +35,8 @@ class ExternalEventPayload(BaseModel):
 class BreakOut(BaseModel):
     """Public representation of a break."""
 
-    id: int
-    run_id: int | None = None
+    id: uuid.UUID
+    run_id: uuid.UUID | None = None
     type: str
     classification: str
     source: str
@@ -53,8 +54,8 @@ class BreakOut(BaseModel):
 
 
 class BreakResolutionOut(BaseModel):
-    id: int
-    break_id: int
+    id: uuid.UUID
+    break_id: uuid.UUID
     type: str
     actor: str
     note: str | None = None
@@ -85,7 +86,7 @@ class ReconRunCreateRequest(BaseModel):
 
 
 class ReconRunOut(BaseModel):
-    id: int
+    id: uuid.UUID
     source: str
     scope: str
     status: str
@@ -99,14 +100,14 @@ class ReconRunOut(BaseModel):
 
 
 class ReconRunCreatedResponse(BaseModel):
-    id: int
+    id: uuid.UUID
     status: str
 
 
 class ReconRuleCreateRequest(BaseModel):
     source: str = Field(..., description="Upstream source this rule applies to")
     asset: str | None = Field(None, description="Optional asset scope; null matches all assets")
-    match_strategy: str = Field("exact", pattern="^(exact|fuzzy|batch)$")
+    match_strategy: str = Field("EXACT", pattern="^(EXACT|FUZZY|BALANCE_ROLLFORWARD)$")
     tolerance_seconds: int = Field(300, ge=0)
     escalation_age_minutes: int = Field(60, ge=0)
     auto_resolve_timing: bool = True
@@ -120,7 +121,7 @@ def _utcnow() -> datetime:
 class BreakAlertEvent(BaseModel):
     """Event payload emitted to the ``break-alert`` topic (Notification)."""
 
-    break_id: int
+    break_id: uuid.UUID
     type: str
     classification: str
     source: str
@@ -130,7 +131,9 @@ class BreakAlertEvent(BaseModel):
     external_amount: Decimal | None = None
     detected_at: datetime
     age_seconds: int = 0
-    action: str = Field(..., description="detected/classified/auto-resolved/escalated/manually-resolved")
+    action: str = Field(
+        ..., description="detected/classified/auto-resolved/escalated/manually-resolved"
+    )
     actor: str = "system"
     timestamp: datetime = Field(default_factory=_utcnow)
 
@@ -138,7 +141,7 @@ class BreakAlertEvent(BaseModel):
 class BreakAuditEvent(BaseModel):
     """Event payload emitted to the ``break-event`` topic (Audit Event Log)."""
 
-    break_id: int
+    break_id: uuid.UUID
     action: str
     actor: str = "system"
     before: dict[str, Any] = Field(default_factory=dict)

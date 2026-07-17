@@ -8,6 +8,7 @@ tests can inject in-memory fakes.
 
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 from typing import Any
 
@@ -31,24 +32,76 @@ from .storage import InMemoryObjectStorage, build_storage
 # ---------------------------------------------------------------------------
 
 
-def ledger_ready() -> bool: return True
-def db_ready() -> bool: return True
-def mq_ready() -> bool: return True
-def source_feeds_ready() -> bool: return True
-def exchange_feeds_ready() -> bool: return True
-def blockchain_feeds_ready() -> bool: return True
-def rail_feeds_ready() -> bool: return True
-def pricing_ready() -> bool: return True
-def fx_ready() -> bool: return True
-def liquidity_ready() -> bool: return True
-def treasury_ready() -> bool: return True
-def wallet_ready() -> bool: return True
-def mpc_ready() -> bool: return True
-def identity_ready() -> bool: return True
-def policy_ready() -> bool: return True
-def audit_ready() -> bool: return True
-def notification_ready() -> bool: return True
-def aml_ready() -> bool: return True
+def ledger_ready() -> bool:
+    return True
+
+
+def db_ready() -> bool:
+    return True
+
+
+def mq_ready() -> bool:
+    return True
+
+
+def source_feeds_ready() -> bool:
+    return True
+
+
+def exchange_feeds_ready() -> bool:
+    return True
+
+
+def blockchain_feeds_ready() -> bool:
+    return True
+
+
+def rail_feeds_ready() -> bool:
+    return True
+
+
+def pricing_ready() -> bool:
+    return True
+
+
+def fx_ready() -> bool:
+    return True
+
+
+def liquidity_ready() -> bool:
+    return True
+
+
+def treasury_ready() -> bool:
+    return True
+
+
+def wallet_ready() -> bool:
+    return True
+
+
+def mpc_ready() -> bool:
+    return True
+
+
+def identity_ready() -> bool:
+    return True
+
+
+def policy_ready() -> bool:
+    return True
+
+
+def audit_ready() -> bool:
+    return True
+
+
+def notification_ready() -> bool:
+    return True
+
+
+def aml_ready() -> bool:
+    return True
 
 
 READINESS_CHECKS = [
@@ -178,7 +231,7 @@ def _register_routes(app: FastAPI) -> None:
         return {"breaks": serialized, "total": len(serialized)}
 
     @app.get("/v1/breaks/{break_id}")
-    async def get_break(request: Request, break_id: int) -> dict[str, Any]:
+    async def get_break(request: Request, break_id: uuid.UUID) -> dict[str, Any]:
         recon = _get_reconciler(request)
         brk = await recon.get_break(break_id)
         if brk is None:
@@ -186,22 +239,24 @@ def _register_routes(app: FastAPI) -> None:
         return _serialize_break(brk, include_resolutions=True)
 
     @app.post("/v1/breaks/{break_id}/resolve")
-    async def resolve_break(request: Request, break_id: int, body: ResolveBreakRequest) -> dict[str, Any]:
+    async def resolve_break(
+        request: Request, break_id: uuid.UUID, body: ResolveBreakRequest
+    ) -> dict[str, Any]:
         recon = _get_reconciler(request)
         resolution = await recon.resolve_break(break_id, actor=body.actor, note=body.note)
         if resolution is None:
             raise HTTPException(status_code=404, detail="break not found")
-        return {"status": "resolved", "break_id": break_id}
+        return {"status": "RESOLVED", "break_id": str(break_id)}
 
     @app.post("/v1/breaks/{break_id}/escalate")
     async def escalate_break(
-        request: Request, break_id: int, body: EscalateBreakRequest
+        request: Request, break_id: uuid.UUID, body: EscalateBreakRequest
     ) -> dict[str, Any]:
         recon = _get_reconciler(request)
         result = await recon.escalate_break(break_id, actor=body.actor, note=body.note)
         if result is None:
             raise HTTPException(status_code=404, detail="break not found")
-        return {"status": "escalated", "break_id": break_id}
+        return {"status": "ESCALATED", "break_id": str(break_id)}
 
     @app.get("/v1/recon-runs")
     async def list_recon_runs(
@@ -213,7 +268,7 @@ def _register_routes(app: FastAPI) -> None:
         return {"recon_runs": [_serialize_run(r) for r in runs], "total": len(runs)}
 
     @app.get("/v1/recon-runs/{run_id}")
-    async def get_recon_run(request: Request, run_id: int) -> dict[str, Any]:
+    async def get_recon_run(request: Request, run_id: uuid.UUID) -> dict[str, Any]:
         recon = _get_reconciler(request)
         run = await recon.get_run(run_id)
         if run is None:
@@ -221,15 +276,13 @@ def _register_routes(app: FastAPI) -> None:
         return _serialize_run(run)
 
     @app.post("/v1/recon-runs")
-    async def create_recon_run(
-        request: Request, body: ReconRunCreateRequest
-    ) -> dict[str, Any]:
+    async def create_recon_run(request: Request, body: ReconRunCreateRequest) -> dict[str, Any]:
         recon = _get_reconciler(request)
         run = await recon.execute(source=body.source, scope=body.scope, mode=body.mode)
         return {"id": run.id, "status": run.status}
 
     @app.get("/v1/recon-runs/{run_id}/report")
-    async def get_run_report(request: Request, run_id: int, fmt: str = Query("csv")) -> Any:
+    async def get_run_report(request: Request, run_id: uuid.UUID, fmt: str = Query("csv")) -> Any:
         recon = _get_reconciler(request)
         run = await recon.get_run(run_id)
         if run is None:
@@ -240,7 +293,7 @@ def _register_routes(app: FastAPI) -> None:
         return PlainTextResponse(report.render_csv(), media_type="text/csv")
 
     @app.post("/v1/recon-runs/{run_id}/report/archive")
-    async def archive_run_report_endpoint(request: Request, run_id: int) -> dict[str, Any]:
+    async def archive_run_report_endpoint(request: Request, run_id: uuid.UUID) -> dict[str, Any]:
         recon = _get_reconciler(request)
         run = await recon.get_run(run_id)
         if run is None:
@@ -261,9 +314,7 @@ def _register_routes(app: FastAPI) -> None:
         return {"recon_rules": [_serialize_rule(r) for r in rules], "total": len(rules)}
 
     @app.post("/v1/recon-rules")
-    async def create_recon_rule(
-        request: Request, body: ReconRuleCreateRequest
-    ) -> dict[str, Any]:
+    async def create_recon_rule(request: Request, body: ReconRuleCreateRequest) -> dict[str, Any]:
         recon = _get_reconciler(request)
         rule = await recon.upsert_rule(
             source=body.source,

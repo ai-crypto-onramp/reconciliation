@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+import uuid
+
+
+def _new_uuid() -> uuid.UUID:
+    gen = getattr(uuid, "uuid7", None)
+    return gen() if gen is not None else uuid.uuid4()
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
@@ -31,14 +37,14 @@ def settings():
 async def test_update_ages_recomputes_seconds(fake_repo):
     now = datetime.now(tz=UTC)
     await fake_repo.create_break(
-        source="rails",
+        source="RAILS",
         asset="USD",
         reference="ref1",
-        type="amount_mismatch",
-        classification="real",
+        type="AMOUNT_MISMATCH",
+        classification="REAL",
         internal_amount=Decimal("100"),
         external_amount=Decimal("90"),
-        status="open",
+        status="OPEN",
         detected_at=now - timedelta(seconds=120),
         age_seconds=0,
     )
@@ -52,14 +58,14 @@ async def test_update_ages_recomputes_seconds(fake_repo):
 async def test_escalate_stale_breaks_emits_alert_and_audit(fake_repo, producer, settings):
     now = datetime.now(tz=UTC)
     await fake_repo.create_break(
-        source="rails",
+        source="RAILS",
         asset="USD",
         reference="ref1",
-        type="amount_mismatch",
-        classification="real",
+        type="AMOUNT_MISMATCH",
+        classification="REAL",
         internal_amount=Decimal("100"),
         external_amount=Decimal("90"),
-        status="open",
+        status="OPEN",
         detected_at=now - timedelta(hours=2),
         age_seconds=7200,
     )
@@ -69,21 +75,21 @@ async def test_escalate_stale_breaks_emits_alert_and_audit(fake_repo, producer, 
     assert len(producer.emitted("break-alert")) == 1
     assert len(producer.emitted("break-event")) == 1
     breaks = await fake_repo.list_breaks()
-    assert breaks[0].status == "escalated"
+    assert breaks[0].status == "ESCALATED"
 
 
 @pytest.mark.asyncio
 async def test_escalate_skips_breaks_under_threshold(fake_repo, producer, settings):
     now = datetime.now(tz=UTC)
     await fake_repo.create_break(
-        source="rails",
+        source="RAILS",
         asset="USD",
         reference="ref1",
-        type="amount_mismatch",
-        classification="real",
+        type="AMOUNT_MISMATCH",
+        classification="REAL",
         internal_amount=Decimal("100"),
         external_amount=Decimal("90"),
-        status="open",
+        status="OPEN",
         detected_at=now - timedelta(seconds=30),
         age_seconds=0,
     )
@@ -95,17 +101,19 @@ async def test_escalate_skips_breaks_under_threshold(fake_repo, producer, settin
 async def test_manually_escalate_break_emits_events(fake_repo, producer):
     now = datetime.now(tz=UTC)
     brk = await fake_repo.create_break(
-        source="rails",
+        source="RAILS",
         asset="USD",
         reference="ref1",
-        type="amount_mismatch",
-        classification="real",
+        type="AMOUNT_MISMATCH",
+        classification="REAL",
         internal_amount=Decimal("100"),
         external_amount=Decimal("90"),
-        status="open",
+        status="OPEN",
         detected_at=now,
     )
-    result = await manually_escalate_break(fake_repo, producer, break_id=brk.id, actor="ops", now=now)
+    result = await manually_escalate_break(
+        fake_repo, producer, break_id=brk.id, actor="ops", now=now
+    )
     assert result is not None
     assert result["action"] == "escalated"
     assert len(producer.emitted("break-alert")) == 1
@@ -114,5 +122,5 @@ async def test_manually_escalate_break_emits_events(fake_repo, producer):
 
 @pytest.mark.asyncio
 async def test_manually_escalate_returns_none_for_missing_break(fake_repo, producer):
-    result = await manually_escalate_break(fake_repo, producer, break_id=999, actor="ops")
+    result = await manually_escalate_break(fake_repo, producer, break_id=_new_uuid(), actor="ops")
     assert result is None

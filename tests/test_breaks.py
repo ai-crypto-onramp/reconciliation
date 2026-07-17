@@ -27,12 +27,12 @@ from reconciliation.matching import (
 @pytest.mark.asyncio
 async def test_detect_amount_mismatch(fake_repo):
     now = datetime.now(tz=UTC)
-    run = await fake_repo.create_recon_run(source="rails", scope="daily")
+    run = await fake_repo.create_recon_run(source="RAILS", scope="daily")
     result = MatchResult(
         balances=[
             BalanceResult(
                 asset="USD",
-                source="rails",
+                source="RAILS",
                 opening=Decimal("0"),
                 net_flow=Decimal("90"),
                 expected_closing=Decimal("100"),
@@ -42,81 +42,103 @@ async def test_detect_amount_mismatch(fake_repo):
             )
         ]
     )
-    created = await detect_and_persist_breaks(fake_repo, result, run_id=run.id, source="rails", now=now)
+    created = await detect_and_persist_breaks(
+        fake_repo, result, run_id=run.id, source="RAILS", now=now
+    )
     assert len(created) == 1
-    assert created[0]["type"] == "amount_mismatch"
-    assert created[0]["classification"] == "real"
+    assert created[0]["type"] == "AMOUNT_MISMATCH"
+    assert created[0]["classification"] == "REAL"
     breaks = await fake_repo.list_breaks()
     assert len(breaks) == 1
-    assert breaks[0].type == "amount_mismatch"
+    assert breaks[0].type == "AMOUNT_MISMATCH"
 
 
 @pytest.mark.asyncio
 async def test_detect_timing_gap(fake_repo):
     now = datetime.now(tz=UTC)
-    run = await fake_repo.create_recon_run(source="rails", scope="daily")
+    run = await fake_repo.create_recon_run(source="RAILS", scope="daily")
     ledger_ts = now
     result = MatchResult(
         unmatched_ledger=[
             UnmatchedLedger(
-                entry=LedgerEntry(reference="ref1", asset="USD", amount=Decimal("100"), timestamp=ledger_ts)
+                entry=LedgerEntry(
+                    reference="ref1", asset="USD", amount=Decimal("100"), timestamp=ledger_ts
+                )
             )
         ]
     )
     created = await detect_and_persist_breaks(
-        fake_repo, result, run_id=run.id, source="rails", tolerance_seconds=300, now=now
+        fake_repo, result, run_id=run.id, source="RAILS", tolerance_seconds=300, now=now
     )
-    assert created[0]["type"] == "timing_gap"
-    assert created[0]["classification"] == "timing"
+    assert created[0]["type"] == "TIMING_GAP"
+    assert created[0]["classification"] == "TIMING"
 
 
 @pytest.mark.asyncio
 async def test_detect_missing_entry(fake_repo):
     now = datetime.now(tz=UTC)
-    run = await fake_repo.create_recon_run(source="rails", scope="daily")
+    run = await fake_repo.create_recon_run(source="RAILS", scope="daily")
     result = MatchResult(
         unmatched_external=[
             UnmatchedExternal(
-                entry=ExternalEntry(external_event_id="e1", source="rails", asset="USD", reference="ref1", amount=Decimal("100"))
+                entry=ExternalEntry(
+                    external_event_id="e1",
+                    source="RAILS",
+                    asset="USD",
+                    reference="ref1",
+                    amount=Decimal("100"),
+                )
             )
         ]
     )
-    created = await detect_and_persist_breaks(fake_repo, result, run_id=run.id, source="rails", now=now)
-    assert created[0]["type"] == "missing_entry"
-    assert created[0]["classification"] == "real"
+    created = await detect_and_persist_breaks(
+        fake_repo, result, run_id=run.id, source="RAILS", now=now
+    )
+    assert created[0]["type"] == "MISSING_ENTRY"
+    assert created[0]["classification"] == "REAL"
 
 
 @pytest.mark.asyncio
 async def test_detect_duplicate(fake_repo):
     now = datetime.now(tz=UTC)
-    run = await fake_repo.create_recon_run(source="rails", scope="daily")
-    dup = ExternalEntry(external_event_id="e1", source="rails", asset="USD", reference="ref1", amount=Decimal("100"))
+    run = await fake_repo.create_recon_run(source="RAILS", scope="daily")
+    dup = ExternalEntry(
+        external_event_id="e1", source="RAILS", asset="USD", reference="ref1", amount=Decimal("100")
+    )
     result = MatchResult(duplicates=[dup])
-    created = await detect_and_persist_breaks(fake_repo, result, run_id=run.id, source="rails", now=now)
-    assert created[0]["type"] == "duplicate"
-    assert created[0]["classification"] == "real"
+    created = await detect_and_persist_breaks(
+        fake_repo, result, run_id=run.id, source="RAILS", now=now
+    )
+    assert created[0]["type"] == "DUPLICATE"
+    assert created[0]["classification"] == "REAL"
 
 
 def test_classify_timing_within_tolerance():
     now = datetime.now(tz=UTC)
-    assert classify_timing(
-        tolerance_seconds=300,
-        ledger_ts=now,
-        external_ts=now + timedelta(seconds=60),
-    ) == "timing"
+    assert (
+        classify_timing(
+            tolerance_seconds=300,
+            ledger_ts=now,
+            external_ts=now + timedelta(seconds=60),
+        )
+        == "TIMING"
+    )
 
 
 def test_classify_timing_outside_tolerance():
     now = datetime.now(tz=UTC)
-    assert classify_timing(
-        tolerance_seconds=300,
-        ledger_ts=now,
-        external_ts=now + timedelta(seconds=600),
-    ) == "real"
+    assert (
+        classify_timing(
+            tolerance_seconds=300,
+            ledger_ts=now,
+            external_ts=now + timedelta(seconds=600),
+        )
+        == "REAL"
+    )
 
 
 def test_classify_timing_missing_timestamp_defaults_to_timing():
-    assert classify_timing(tolerance_seconds=300, ledger_ts=None, external_ts=None) == "timing"
+    assert classify_timing(tolerance_seconds=300, ledger_ts=None, external_ts=None) == "TIMING"
 
 
 def test_compute_age():
@@ -134,8 +156,14 @@ def test_compute_age_never_negative():
 def test_classify_amount_mismatch_within_tolerance():
     pair = MatchedPair(
         ledger=LedgerEntry(reference="r1", asset="USD", amount=Decimal("100")),
-        external=ExternalEntry(external_event_id="e1", source="rails", asset="USD", reference="r1", amount=Decimal("100")),
-        strategy="exact",
+        external=ExternalEntry(
+            external_event_id="e1",
+            source="RAILS",
+            asset="USD",
+            reference="r1",
+            amount=Decimal("100"),
+        ),
+        strategy="EXACT",
         delta=Decimal("5"),
     )
-    assert classify_amount_mismatch(tolerance_seconds=10, pair=pair) == "timing"
+    assert classify_amount_mismatch(tolerance_seconds=10, pair=pair) == "TIMING"

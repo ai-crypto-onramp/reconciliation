@@ -16,11 +16,29 @@ from reconciliation.matching import (
 
 
 def _ledger(reference="ref1", asset="USD", amount=Decimal("100"), counterparty="bank1", ts=None):
-    return LedgerEntry(reference=reference, asset=asset, amount=amount, counterparty=counterparty, timestamp=ts)
+    return LedgerEntry(
+        reference=reference, asset=asset, amount=amount, counterparty=counterparty, timestamp=ts
+    )
 
 
-def _external(eid="ext1", source="rails", asset="USD", reference="ref1", amount=Decimal("100"), counterparty="bank1", ts=None):
-    return ExternalEntry(external_event_id=eid, source=source, asset=asset, reference=reference, amount=amount, counterparty=counterparty, timestamp=ts)
+def _external(
+    eid="ext1",
+    source="RAILS",
+    asset="USD",
+    reference="ref1",
+    amount=Decimal("100"),
+    counterparty="bank1",
+    ts=None,
+):
+    return ExternalEntry(
+        external_event_id=eid,
+        source=source,
+        asset=asset,
+        reference=reference,
+        amount=amount,
+        counterparty=counterparty,
+        timestamp=ts,
+    )
 
 
 class TestExactMatchStrategy:
@@ -89,8 +107,8 @@ class TestBalanceRollforwardStrategy:
 
 
 def test_get_strategy_returns_correct_type():
-    assert isinstance(get_strategy("exact"), ExactMatchStrategy)
-    assert isinstance(get_strategy("fuzzy"), FuzzyMatchStrategy)
-    assert isinstance(get_strategy("balance_rollforward"), BalanceRollforwardStrategy)
+    assert isinstance(get_strategy("EXACT"), ExactMatchStrategy)
+    assert isinstance(get_strategy("FUZZY"), FuzzyMatchStrategy)
+    assert isinstance(get_strategy("BALANCE_ROLLFORWARD"), BalanceRollforwardStrategy)
     # default
     assert isinstance(get_strategy("unknown"), ExactMatchStrategy)
