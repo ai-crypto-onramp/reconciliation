@@ -3,11 +3,6 @@
 from __future__ import annotations
 
 import uuid
-
-
-def _new_uuid() -> uuid.UUID:
-    gen = getattr(uuid, "uuid7", None)
-    return gen() if gen is not None else uuid.uuid4()
 from datetime import UTC
 from decimal import Decimal
 
@@ -18,6 +13,11 @@ from reconciliation.config import Settings
 from reconciliation.kafka import InMemoryConsumer, InMemoryProducer
 from reconciliation.matching import ExternalEntry, LedgerEntry
 from reconciliation.reconciler import Reconciler
+
+
+def _new_uuid() -> uuid.UUID:
+    gen = getattr(uuid, "uuid7", None)
+    return gen() if gen is not None else uuid.uuid4()
 
 
 @pytest.fixture

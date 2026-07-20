@@ -21,7 +21,7 @@ from .breaks.aging import (
     update_ages,
 )
 from .breaks.auto_resolve import attempt_auto_resolve
-from .config import CONSUMER_TOPICS, AUDIT_TOPIC, audit_envelope, Settings, get_settings
+from .config import AUDIT_TOPIC, CONSUMER_TOPICS, Settings, audit_envelope, get_settings
 from .db.repository import Repository, SqlRepository
 from .db.session import async_engine_factory, async_session_factory, init_db
 from .kafka import (

@@ -7,14 +7,6 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-
-def _new_uuid() -> uuid.UUID:
-    """Generate a UUID; prefers v7 (time-ordered) on Python 3.14+, falls back to v4."""
-    gen = getattr(uuid, "uuid7", None)
-    if gen is not None:
-        return gen()
-    return uuid.uuid4()
-
 from sqlalchemy import (
     DateTime,
     ForeignKey,
@@ -27,6 +19,14 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+
+def _new_uuid() -> uuid.UUID:
+    """Generate a UUID; prefers v7 (time-ordered) on Python 3.14+, falls back to v4."""
+    gen = getattr(uuid, "uuid7", None)
+    if gen is not None:
+        return gen()
+    return uuid.uuid4()
 
 
 class Base(DeclarativeBase):

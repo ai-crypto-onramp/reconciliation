@@ -11,7 +11,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from ..config import AUDIT_TOPIC, audit_envelope, Settings
+from ..config import AUDIT_TOPIC, Settings, audit_envelope
 from ..db.repository import Repository
 from ..kafka import Producer
 from ..schemas import BreakAlertEvent, BreakAuditEvent
