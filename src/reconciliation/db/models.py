@@ -42,7 +42,7 @@ class ExternalEvent(Base):
 
     __tablename__ = "external_events"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_new_uuid)  # type: ignore[attr-defined]
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_new_uuid)
     source: Mapped[str] = mapped_column(String(32), nullable=False)
     external_event_id: Mapped[str] = mapped_column(String(128), nullable=False)
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
@@ -73,7 +73,7 @@ class ReconRun(Base):
 
     __tablename__ = "recon_runs"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_new_uuid)  # type: ignore[attr-defined]
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_new_uuid)
     source: Mapped[str] = mapped_column(String(32), nullable=False)
     scope: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False, server_default="RUNNING")
@@ -110,7 +110,7 @@ class Break(Base):
 
     __tablename__ = "breaks"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_new_uuid)  # type: ignore[attr-defined]
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_new_uuid)
     run_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=False), ForeignKey("recon_runs.id", ondelete="SET NULL"), nullable=True
     )
@@ -159,7 +159,7 @@ class BreakResolution(Base):
 
     __tablename__ = "break_resolutions"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_new_uuid)  # type: ignore[attr-defined]
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_new_uuid)
     break_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=False), ForeignKey("breaks.id", ondelete="CASCADE"), nullable=False
     )
@@ -192,7 +192,7 @@ class ReconRule(Base):
 
     __tablename__ = "recon_rules"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_new_uuid)  # type: ignore[attr-defined]
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=False), primary_key=True, default=_new_uuid)
     source: Mapped[str] = mapped_column(String(32), nullable=False)
     asset: Mapped[str | None] = mapped_column(String(32), nullable=True)
     match_strategy: Mapped[str] = mapped_column(String(32), nullable=False, server_default="EXACT")
