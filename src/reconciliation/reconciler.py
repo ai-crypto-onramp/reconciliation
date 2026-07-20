@@ -21,7 +21,7 @@ from .breaks.aging import (
     update_ages,
 )
 from .breaks.auto_resolve import attempt_auto_resolve
-from .config import CONSUMER_TOPICS, Settings, get_settings
+from .config import CONSUMER_TOPICS, AUDIT_TOPIC, audit_envelope, Settings, get_settings
 from .db.repository import Repository, SqlRepository
 from .db.session import async_engine_factory, async_session_factory, init_db
 from .kafka import (
@@ -288,7 +288,11 @@ class Reconciler:
             after={"run_id": run_id, "classification": brk.classification},
         )
         await self.producer.send("break-alert", alert.model_dump(mode="json"), key=str(brk.id))
-        await self.producer.send("break-event", audit.model_dump(mode="json"), key=str(brk.id))
+        await self.producer.send(
+            AUDIT_TOPIC,
+            audit_envelope(audit.model_dump(mode="json"), brk.id),
+            key=str(brk.id),
+        )
 
     async def _emit_audit(self, event: dict[str, Any]) -> None:
         audit = BreakAuditEvent(
@@ -299,7 +303,9 @@ class Reconciler:
             after=event.get("after", {}),
         )
         await self.producer.send(
-            "break-event", audit.model_dump(mode="json"), key=str(event["break_id"])
+            AUDIT_TOPIC,
+            audit_envelope(audit.model_dump(mode="json"), event["break_id"]),
+            key=str(event["break_id"])
         )
 
 

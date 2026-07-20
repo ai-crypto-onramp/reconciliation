@@ -73,7 +73,7 @@ async def test_escalate_stale_breaks_emits_alert_and_audit(fake_repo, producer, 
     assert len(emitted) == 1
     assert emitted[0]["action"] == "escalated"
     assert len(producer.emitted("break-alert")) == 1
-    assert len(producer.emitted("break-event")) == 1
+    assert len(producer.emitted("audit.v1")) == 1
     breaks = await fake_repo.list_breaks()
     assert breaks[0].status == "ESCALATED"
 
@@ -117,7 +117,7 @@ async def test_manually_escalate_break_emits_events(fake_repo, producer):
     assert result is not None
     assert result["action"] == "escalated"
     assert len(producer.emitted("break-alert")) == 1
-    assert len(producer.emitted("break-event")) == 1
+    assert len(producer.emitted("audit.v1")) == 1
 
 
 @pytest.mark.asyncio

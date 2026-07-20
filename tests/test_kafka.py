@@ -27,9 +27,9 @@ async def test_in_memory_producer_collects_messages():
     producer = InMemoryProducer()
     await producer.start()
     await producer.send("break-alert", {"break_id": 1}, key="1")
-    await producer.send("break-event", {"break_id": 1, "action": "detected"}, key="1")
+    await producer.send("audit.v1", {"break_id": 1, "action": "detected"}, key="1")
     assert len(producer.emitted("break-alert")) == 1
-    assert len(producer.emitted("break-event")) == 1
+    assert len(producer.emitted("audit.v1")) == 1
     await producer.stop()
 
 

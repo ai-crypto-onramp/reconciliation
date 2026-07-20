@@ -67,7 +67,34 @@ CONSUMER_TOPICS: dict[str, str] = {
 
 # Topics emitted by this service.
 ALERT_TOPIC = "break-alert"
-AUDIT_TOPIC = "break-event"
+AUDIT_TOPIC = "audit.v1"
+
+
+def audit_envelope(payload: dict[str, Any], target_id: Any) -> dict[str, Any]:
+    """Build the canonical audit.v1 envelope (see
+    .github/contracts/asyncapi/audit/v1/asyncapi.yaml) around an arbitrary payload.
+    """
+    import hashlib
+    import json
+    import uuid
+
+    payload_bytes = json.dumps(payload, sort_keys=True, default=str).encode("utf-8")
+    payload_hash = "sha256:" + hashlib.sha256(payload_bytes).hexdigest()
+    ts_val: Any = payload.get("timestamp") or payload.get("detected_at") or ""
+    if hasattr(ts_val, "isoformat"):
+        ts_val = ts_val.isoformat()
+    return {
+        "schema_version": "1",
+        "id": str(uuid.uuid4()),
+        "ts": str(ts_val),
+        "source_service": "reconciliation",
+        "actor_id": payload.get("actor", "reconciliation"),
+        "action": "recon." + str(payload.get("action", "event")),
+        "target_type": "break",
+        "target_id": str(target_id),
+        "payload_hash": payload_hash,
+        "payload": payload,
+    }
 
 
 _settings: Settings | None = None

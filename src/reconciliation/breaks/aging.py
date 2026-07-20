@@ -11,7 +11,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from ..config import Settings
+from ..config import AUDIT_TOPIC, audit_envelope, Settings
 from ..db.repository import Repository
 from ..kafka import Producer
 from ..schemas import BreakAlertEvent, BreakAuditEvent
@@ -76,7 +76,11 @@ async def escalate_stale_breaks(
             timestamp=now,
         )
         await producer.send("break-alert", alert.model_dump(mode="json"), key=str(brk.id))
-        await producer.send("break-event", audit.model_dump(mode="json"), key=str(brk.id))
+        await producer.send(
+            AUDIT_TOPIC,
+            audit_envelope(audit.model_dump(mode="json"), brk.id),
+            key=str(brk.id),
+        )
         emitted.append(
             {
                 "break_id": brk.id,
@@ -131,7 +135,11 @@ async def manually_escalate_break(
         timestamp=now,
     )
     await producer.send("break-alert", alert.model_dump(mode="json"), key=str(brk.id))
-    await producer.send("break-event", audit.model_dump(mode="json"), key=str(brk.id))
+    await producer.send(
+        AUDIT_TOPIC,
+        audit_envelope(audit.model_dump(mode="json"), brk.id),
+        key=str(brk.id),
+    )
     return {
         "break_id": brk.id,
         "action": "escalated",
