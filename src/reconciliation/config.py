@@ -35,6 +35,24 @@ class Settings(BaseSettings):
     # Test-friendly knobs.
     enable_kafka: bool = False
 
+    # External service URLs.
+    ledger_url: str = ""
+
+    # Recon scope: comma-separated account ids to fetch from the ledger
+    # service. Empty means "all accounts".
+    recon_accounts: str = ""
+
+    # Kafka topic names consumed by this service. Defaults match the
+    # canonical contracts in .github/contracts/asyncapi/.
+    recon_ledger_topic: str = "ledger.events.v1"
+    recon_rails_topic: str = "rail.events.v1"
+    recon_blockchain_topic: str = "blockchain.events.v1"
+    recon_liquidity_topic: str = "liquidity.fills"
+    recon_fraud_topic: str = "fraud.scored"
+    recon_payment_topic: str = "payment.events.v1"
+    recon_exchange_topic: str = "exchange.events.v1"
+    recon_custody_topic: str = "custody.events.v1"
+
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> Settings:
         """Build settings from a (possibly partial) environment mapping."""
@@ -56,13 +74,36 @@ RESOLUTION_TYPES: tuple[str, ...] = ("MANUAL", "AUTO")
 MATCH_STRATEGIES: tuple[str, ...] = ("EXACT", "FUZZY", "BALANCE_ROLLFORWARD")
 RUN_STATUSES: tuple[str, ...] = ("RUNNING", "COMPLETED", "FAILED")
 
-# Topics consumed by this service from upstream producers.
+# Topics consumed by this service from upstream producers. Defaults are
+# derived from the canonical AsyncAPI contracts in
+# .github/contracts/asyncapi/<service>/v1/asyncapi.yaml; override via the
+# matching ``recon_*_topic`` env vars (see :class:`Settings).
+def _consumer_topics_from_settings(settings: Settings | None = None) -> dict[str, str]:
+    s = settings or get_settings()
+    return {
+        "LEDGER": s.recon_ledger_topic,
+        "RAILS": s.recon_rails_topic,
+        "EXCHANGES": s.recon_exchange_topic,
+        "ONCHAIN": s.recon_blockchain_topic,
+        "CUSTODY": s.recon_custody_topic,
+        "LIQUIDITY": s.recon_liquidity_topic,
+        "FRAUD": s.recon_fraud_topic,
+        "PAYMENT": s.recon_payment_topic,
+    }
+
+
+# Backwards-compatible static map; tests import this directly. The values
+# are the canonical defaults — runtime code should prefer
+# :func:`_consumer_topics_from_settings` so env overrides take effect.
 CONSUMER_TOPICS: dict[str, str] = {
-    "LEDGER": "ledger-accounting",
-    "RAILS": "rail-connectors",
-    "EXCHANGES": "exchange-connectors",
-    "ONCHAIN": "blockchain-gateway",
-    "CUSTODY": "blockchain-gateway",
+    "LEDGER": "ledger.events.v1",
+    "RAILS": "rail.events.v1",
+    "EXCHANGES": "exchange.events.v1",
+    "ONCHAIN": "blockchain.events.v1",
+    "CUSTODY": "custody.events.v1",
+    "LIQUIDITY": "liquidity.fills",
+    "FRAUD": "fraud.scored",
+    "PAYMENT": "payment.events.v1",
 }
 
 # Topics emitted by this service.

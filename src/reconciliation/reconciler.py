@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 import uuid
 from collections.abc import Sequence
+from datetime import timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -29,6 +30,7 @@ from .kafka import (
     Producer,
     build_producer,
 )
+from .ledger_fetcher import LedgerFetcher, build_ledger_fetcher
 from .matching import ExternalEntry, LedgerEntry, get_strategy
 from .schemas import BreakAlertEvent, BreakAuditEvent
 
@@ -45,18 +47,25 @@ class Reconciler:
         settings: Settings,
         *,
         engine: Any | None = None,
+        ledger_fetcher: LedgerFetcher | None = None,
     ) -> None:
         self.repo = repo
         self.producer = producer
         self.settings = settings
         self.engine = engine
+        self.ledger_fetcher = ledger_fetcher
 
     @classmethod
     def from_settings(cls, settings: Settings | None = None) -> Reconciler:
         """Build a reconciler using the default (real or in-memory) backends."""
         settings = settings or get_settings()
         producer = build_producer(settings)
-        return cls(repo=_LazyRepo(settings), producer=producer, settings=settings)
+        return cls(
+            repo=_LazyRepo(settings),
+            producer=producer,
+            settings=settings,
+            ledger_fetcher=build_ledger_fetcher(settings),
+        )
 
     async def ingest(self, source: str, payload: dict[str, Any]) -> tuple[Any, bool]:
         """Idempotently ingest an external event and (maybe) auto-resolve."""
@@ -108,10 +117,31 @@ class Reconciler:
     ) -> Any:
         """Run a recon cycle: create a run, match, detect breaks, complete."""
         run = await self.repo.create_recon_run(source=source, scope=scope)
-        ledger = ledger_entries or []
-        external = external_entries or []
-        if not ledger and not external:
-            # Pull ingested events from the repo for this source.
+        if ledger_entries is not None:
+            ledger = ledger_entries
+        elif self.ledger_fetcher is not None:
+            since = (
+                run.started_at - timedelta(seconds=self.settings.break_tolerance_seconds)
+                if run.started_at
+                else None
+            )
+            try:
+                ledger = await self.ledger_fetcher.fetch_all(since=since)
+            except Exception as e:  # noqa: BLE001 - degrade gracefully
+                logger.warning(
+                    "ledger fetch failed; running recon without ledger data: %s", e
+                )
+                ledger = []
+        else:
+            logger.warning(
+                "recon run %s for source=%s started without a ledger fetcher; "
+                "every external entry will be flagged MISSING_ENTRY",
+                run.id,
+                source,
+            )
+            ledger = []
+        external = external_entries
+        if external is None:
             external = await self._external_entries_for(source)
         strategy_name = await self._strategy_for(source)
         strategy = get_strategy(strategy_name)
@@ -237,15 +267,19 @@ class Reconciler:
         entries: list[ExternalEntry] = []
         for ev in events:
             payload = ev.payload or {}
+            raw_amount = payload.get("amount")
+            amount = (
+                Decimal(str(raw_amount))
+                if isinstance(raw_amount, (int, float, str, Decimal))
+                else None
+            )
             entries.append(
                 ExternalEntry(
                     external_event_id=ev.external_event_id,
                     source=ev.source,
                     asset=payload.get("asset") or "",
                     reference=payload.get("reference"),
-                    amount=payload.get("amount")
-                    if isinstance(payload.get("amount"), (int, float, str, Decimal))
-                    else None,
+                    amount=amount,
                     counterparty=payload.get("counterparty"),
                     timestamp=payload.get("timestamp"),
                 )

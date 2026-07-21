@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC
 from decimal import Decimal
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -27,6 +28,15 @@ def recon(fake_repo):
     return Reconciler(fake_repo, producer, settings)
 
 
+@pytest.fixture
+def recon_with_fetcher(fake_repo):
+    producer = InMemoryProducer()
+    settings = Settings(break_tolerance_seconds=300)
+    fetcher = AsyncMock()
+    fetcher.fetch_all = AsyncMock(return_value=[])
+    return Reconciler(fake_repo, producer, settings, ledger_fetcher=fetcher), fetcher
+
+
 @pytest.mark.asyncio
 async def test_execute_creates_run_with_counts(recon, fake_repo):
     ledger = [LedgerEntry(reference="ref1", asset="USD", amount=Decimal("100"))]
@@ -45,6 +55,50 @@ async def test_execute_creates_run_with_counts(recon, fake_repo):
     assert run.status == "COMPLETED"
     assert run.matched_count == 1
     assert run.breaks_count == 0
+
+
+@pytest.mark.asyncio
+async def test_execute_calls_ledger_fetcher_when_entries_omitted(recon_with_fetcher, fake_repo):
+
+    recon, fetcher = recon_with_fetcher
+    ledger = [LedgerEntry(reference="ref1", asset="USD", amount=Decimal("100"))]
+    fetcher.fetch_all = AsyncMock(return_value=ledger)
+    await fake_repo.upsert_external_event(
+        "RAILS",
+        "e1",
+        {
+            "external_event_id": "e1",
+            "source": "RAILS",
+            "asset": "USD",
+            "amount": "100",
+            "reference": "ref1",
+        },
+    )
+    run = await recon.execute(source="RAILS", scope="daily")
+    assert fetcher.fetch_all.await_count == 1
+    assert run.status == "COMPLETED"
+    assert run.matched_count == 1
+
+
+@pytest.mark.asyncio
+async def test_execute_warns_when_no_fetcher_and_no_entries(recon, fake_repo, caplog):
+    import logging
+
+    await fake_repo.upsert_external_event(
+        "RAILS",
+        "e1",
+        {
+            "external_event_id": "e1",
+            "source": "RAILS",
+            "asset": "USD",
+            "amount": "100",
+            "reference": "ref1",
+        },
+    )
+    with caplog.at_level(logging.WARNING, logger="reconciliation.reconciler"):
+        run = await recon.execute(source="RAILS", scope="daily")
+    assert run.status == "COMPLETED"
+    assert any("without a ledger fetcher" in rec.message for rec in caplog.records)
 
 
 @pytest.mark.asyncio
@@ -95,9 +149,9 @@ async def test_resolve_break_returns_none_for_missing(recon):
 
 @pytest.mark.asyncio
 async def test_consume_once_ingests_from_consumer(recon, fake_repo):
-    consumer = InMemoryConsumer(["rail-connectors"])
+    consumer = InMemoryConsumer(["rail.events.v1"])
     consumer.enqueue(
-        "rail-connectors",
+        "rail.events.v1",
         {
             "external_event_id": "e1",
             "source": "RAILS",

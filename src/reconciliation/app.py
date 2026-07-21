@@ -8,6 +8,7 @@ tests can inject in-memory fakes.
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime
 from typing import Any
@@ -26,6 +27,11 @@ from .schemas import (
     ResolveBreakRequest,
 )
 from .storage import InMemoryObjectStorage, build_storage
+from .tracing import init_tracing, instrument_app
+
+init_tracing()
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Readiness checks (preserved from the original scaffolding).
@@ -160,6 +166,8 @@ def create_app(reconciler: Reconciler | None = None) -> FastAPI:
     from settings on first request.
     """
     app = FastAPI(title="Reconciliation", version="0.1.0")
+    instrument_app(app)
+    app.state.ledger_consumer = None
     if reconciler is not None:
         app.state.reconciler = reconciler
         app.state.producer = reconciler.producer
@@ -176,9 +184,33 @@ def create_app(reconciler: Reconciler | None = None) -> FastAPI:
                 from .db.session import async_engine_factory, init_db
 
                 await init_db(async_engine_factory(settings.db_url))
+            await _start_ledger_consumer(app, settings)
+
+        @app.on_event("shutdown")
+        async def _stop_ledger_consumer() -> None:
+            consumer = getattr(app.state, "ledger_consumer", None)
+            if consumer is not None:
+                await consumer.stop()
+                app.state.ledger_consumer = None
 
     _register_routes(app)
     return app
+
+
+async def _start_ledger_consumer(app: FastAPI, settings: Any) -> None:
+    from .kafka_ledger_consumer import build_ledger_consumer
+    from .reconciler import Reconciler as _Reconciler
+
+    recon = getattr(app.state, "reconciler", None) or _Reconciler.from_settings(settings)
+    app.state.reconciler = recon
+    consumer = build_ledger_consumer(recon, settings)
+    if consumer is None:
+        return
+    try:
+        await consumer.start()
+        app.state.ledger_consumer = consumer
+    except Exception as e:  # noqa: BLE001 - don't fail app boot on broker error
+        logger.warning("ledger consumer failed to start: %s", e)
 
 
 def _get_reconciler(request: Request) -> Reconciler:

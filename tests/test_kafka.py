@@ -10,9 +10,9 @@ from reconciliation.kafka import InMemoryConsumer, InMemoryProducer, build_consu
 
 @pytest.mark.asyncio
 async def test_in_memory_consumer_yields_enqueued_records():
-    consumer = InMemoryConsumer(["ledger-accounting"])
+    consumer = InMemoryConsumer(["ledger.events.v1"])
     await consumer.start()
-    consumer.enqueue("ledger-accounting", {"external_event_id": "e1", "amount": 100})
+    consumer.enqueue("ledger.events.v1", {"external_event_id": "e1", "amount": 100})
     records = []
     async for record in consumer.drain():
         records.append(record)
@@ -79,8 +79,8 @@ async def test_consume_once_dead_letters_poison_messages(fake_repo, monkeypatch)
         raise ValueError("poison")
 
     monkeypatch.setattr(recon, "ingest", boom)
-    consumer = InMemoryConsumer(["rail-connectors"])
-    consumer.enqueue("rail-connectors", {"external_event_id": "e1", "source": "RAILS"})
+    consumer = InMemoryConsumer(["rail.events.v1"])
+    consumer.enqueue("rail.events.v1", {"external_event_id": "e1", "source": "RAILS"})
     await recon.consume_once(consumer)
     dlq = producer.emitted("recon-dlq")
     assert len(dlq) == 1
